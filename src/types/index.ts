@@ -37,7 +37,7 @@ export interface Settings {
   notifications: boolean;
 }
 
-export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'settings' | 'categories';
+export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'settings' | 'categories' | 'terms' | 'privacy';
 
 export interface MonthlyGoal {
   id: string;
@@ -50,4 +50,12 @@ export interface DDay {
   id: string;
   title: string;
   targetDate: string; // YYYY-MM-DD
+}
+
+export interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 }

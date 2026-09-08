@@ -1,5 +1,48 @@
 import { supabase } from './supabase';
-import type { DbCategory, DbTodo, DbSubtask, DbNote, DbSettings, DbMonthlyGoal, DbDDay } from './supabase';
+import type { DbCategory, DbTodo, DbSubtask, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbNotice } from './supabase';
+
+// ────────────────────────────────────────────────
+// 공지사항 (관리자만 작성 가능, 로그인한 모두가 읽음)
+// ────────────────────────────────────────────────
+export async function fetchNotices(): Promise<DbNotice[]> {
+  const { data, error } = await supabase
+    .from('notices')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createNotice(title: string, content: string): Promise<DbNotice> {
+  const { data, error } = await supabase
+    .from('notices')
+    .insert({ title, content })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateNotice(id: string, updates: Partial<Pick<DbNotice, 'title' | 'content'>>): Promise<void> {
+  const { error } = await supabase.from('notices').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteNotice(id: string): Promise<void> {
+  const { error } = await supabase.from('notices').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────
+// 계정 삭제 - 본인 데이터 전체 삭제 (subtasks는 todos 삭제 시 cascade)
+// ────────────────────────────────────────────────
+export async function deleteAllUserData(userId: string): Promise<void> {
+  const tables = ['todos', 'categories', 'notes', 'monthly_goals', 'ddays', 'user_settings'] as const;
+  for (const table of tables) {
+    const { error } = await supabase.from(table).delete().eq('user_id', userId);
+    if (error) throw error;
+  }
+}
 
 // ────────────────────────────────────────────────
 // Categories

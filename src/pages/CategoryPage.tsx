@@ -11,7 +11,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { useApp } from '../context/AppContext';
 import type { Category } from '../types';
 
-const PRESET_COLORS = ['#6366f1','#8b5cf6','#ec4899','#ef4444','#f97316','#f59e0b','#10b981','#06b6d4','#3b82f6','#64748b'];
+const PRESET_COLORS = ['#7B7FE0','#9B7FDB','#DB7FAE','#DE7373','#E0985A','#C99A3A','#5FB98A','#5FB4C2','#6B98E0','#8891A0'];
 
 interface ItemProps {
   cat: Category;
@@ -44,15 +44,15 @@ function SortableCategoryItem({
       {editingId === cat.id ? (
         <div className="space-y-3">
           <input value={editName} onChange={e => onEditName(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+            className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500"
             onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); }}
           />
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map(color => (
-              <button key={color} onClick={() => onEditColor(color)}
+              <button key={color} onClick={() => onEditColor(color)} aria-label={`색상 ${color}`}
                 className="w-7 h-7 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
                 style={{ backgroundColor: color }}>
-                {editColor === color && <Check size={12} className="text-white" strokeWidth={3} />}
+                {editColor === color && <Check size={12} className="text-gray-800" strokeWidth={3} />}
               </button>
             ))}
           </div>
@@ -60,7 +60,7 @@ function SortableCategoryItem({
             <button onClick={onCancelEdit}
               className="flex-1 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400">취소</button>
             <button onClick={onSaveEdit}
-              className="flex-1 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold">저장</button>
+              className="flex-1 py-2 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold">저장</button>
           </div>
         </div>
       ) : (
@@ -77,8 +77,8 @@ function SortableCategoryItem({
           {cat.isDefault && (
             <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">기본</span>
           )}
-          <button onClick={() => { onStartEdit(cat.id); onCancelDelete(); }}
-            className="text-gray-400 hover:text-sky-500 transition-colors p-1">
+          <button onClick={() => { onStartEdit(cat.id); onCancelDelete(); }} aria-label={`${cat.name} 편집`}
+            className="text-gray-400 hover:text-leaf-500 transition-colors p-1">
             <Edit2 size={14} />
           </button>
           {confirmDeleteId === cat.id ? (
@@ -89,7 +89,7 @@ function SortableCategoryItem({
                 className="text-[11px] px-2 py-1 rounded-lg bg-red-500 text-white font-medium">삭제</button>
             </div>
           ) : (
-            <button onClick={() => onDelete(cat.id)}
+            <button onClick={() => onDelete(cat.id)} aria-label={`${cat.name} 삭제`}
               className="text-gray-400 hover:text-red-500 transition-colors p-1">
               <Trash2 size={14} />
             </button>
@@ -151,13 +151,13 @@ export default function CategoryPage() {
   return (
     <div className="min-h-screen pb-20">
       <div className="flex items-center gap-3 px-4 pt-12 pb-4 border-b border-gray-100 dark:border-gray-800">
-        <button onClick={() => setCurrentScreen('settings')}
+        <button onClick={() => setCurrentScreen('settings')} aria-label="설정으로 돌아가기"
           className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
           <ChevronLeft size={20} />
         </button>
         <h1 className="text-lg font-bold text-gray-900 dark:text-white flex-1">카테고리 관리</h1>
-        <button onClick={() => { setShowAdd(v => !v); setEditingId(null); }}
-          className="w-9 h-9 rounded-xl bg-sky-500 flex items-center justify-center text-white hover:bg-sky-600 transition-colors">
+        <button onClick={() => { setShowAdd(v => !v); setEditingId(null); }} aria-label={showAdd ? '취소' : '카테고리 추가'}
+          className="w-9 h-9 rounded-xl bg-leaf-300 flex items-center justify-center text-leaf-800 hover:bg-leaf-400 transition-colors">
           {showAdd ? <X size={16} /> : <Plus size={16} />}
         </button>
       </div>
@@ -168,20 +168,20 @@ export default function CategoryPage() {
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">새 카테고리</p>
             <input value={newName} onChange={e => setNewName(e.target.value)}
               placeholder="카테고리 이름"
-              className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 placeholder-gray-400"
+              className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
               onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
             />
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map(color => (
-                <button key={color} onClick={() => setNewColor(color)}
+                <button key={color} onClick={() => setNewColor(color)} aria-label={`색상 ${color}`}
                   className="w-8 h-8 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
                   style={{ backgroundColor: color }}>
-                  {newColor === color && <Check size={14} className="text-white" strokeWidth={3} />}
+                  {newColor === color && <Check size={14} className="text-gray-800" strokeWidth={3} />}
                 </button>
               ))}
             </div>
             <button onClick={handleAdd} disabled={!newName.trim()}
-              className="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold disabled:opacity-40 transition-opacity">
+              className="w-full py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 text-sm font-semibold disabled:opacity-40 transition-opacity">
               추가
             </button>
           </div>

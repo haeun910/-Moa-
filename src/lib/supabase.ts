@@ -1,21 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-if (!url || !key) {
-  throw new Error(
-    '.env 파일에 VITE_SUPABASE_URL 과 VITE_SUPABASE_ANON_KEY 를 설정해 주세요.\n' +
-    '.env.example 파일을 참고하세요.'
-  );
-}
+// .env가 없거나 잘못돼도 앱 자체는 로드되어야 하므로(흰 화면 방지),
+// 여기서 throw하지 않고 App.tsx가 이 플래그를 보고 안내 화면을 보여줍니다.
+export const isSupabaseConfigured = Boolean(url && key);
 
-export const supabase = createClient(url, key, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+// 공지사항을 작성/수정/삭제할 수 있는 관리자 계정.
+// supabase/migrations/003_notices.sql의 RLS 정책과 반드시 같은 값이어야 합니다.
+export const ADMIN_USER_ID = '17478ff6-7e7a-419e-ba64-7bb9db8bbcea';
+
+export const supabase = createClient(
+  url || 'https://placeholder.supabase.co',
+  key || 'placeholder-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  }
+);
 
 // ────────────────────────────────────────────────
 // DB 타입 (Supabase 반환 행 기준)
@@ -79,6 +84,14 @@ export interface DbDDay {
   title: string;
   target_date: string;
   created_at: string;
+}
+
+export interface DbNotice {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DbSettings {

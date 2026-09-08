@@ -57,13 +57,14 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
         {/* Checkbox */}
         <button
           onClick={() => toggleTodo(todo.id)}
+          aria-label={todo.completed ? '완료 취소' : '완료 처리'}
           className={`flex-shrink-0 w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center transition-all duration-200 ${
             todo.completed
-              ? 'bg-sky-500 border-sky-500 shadow-[0_0_0_3px_rgba(14,165,233,0.15)]'
-              : 'border-gray-300 dark:border-gray-600 hover:border-sky-400 dark:hover:border-sky-500'
+              ? 'bg-leaf-300 border-leaf-300 shadow-[0_0_0_3px_rgba(107,133,52,0.2)]'
+              : 'border-gray-300 dark:border-gray-600 hover:border-leaf-400 dark:hover:border-leaf-500'
           }`}
         >
-          {todo.completed && <Check size={10} className="text-white stroke-[3.5px]" />}
+          {todo.completed && <Check size={10} className="text-leaf-800 stroke-[3.5px]" />}
         </button>
 
         {/* Title + meta */}
@@ -78,7 +79,7 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
           {(todo.startTime || subtaskTotal > 0) && (
             <div className="flex items-center gap-2 mt-0.5">
               {todo.startTime && (
-                <span className="flex items-center gap-0.5 text-[11px] text-sky-500 dark:text-sky-400 font-medium">
+                <span className="flex items-center gap-0.5 text-[11px] text-leaf-500 dark:text-leaf-400 font-medium">
                   <Clock size={10} />
                   {todo.startTime}
                 </span>
@@ -106,7 +107,8 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
         {/* Add subtask */}
         <button
           onClick={openSubtaskAdd}
-          className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-all duration-200 ${
+          aria-label="하위 항목 추가"
+          className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-leaf-500 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 transition-all duration-200 ${
             showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           title="하위 항목 추가"
@@ -118,6 +120,7 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
         {(subtaskTotal > 0 || addingSubtask) && (
           <button
             onClick={() => setExpanded(v => !v)}
+            aria-label={expanded ? '하위 항목 접기' : '하위 항목 펼치기'}
             className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -127,6 +130,7 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
         {/* Delete */}
         <button
           onClick={() => deleteTodo(todo.id)}
+          aria-label="삭제"
           className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 ${
             showDelete ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2 pointer-events-none'
           }`}
@@ -142,13 +146,14 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
             <div key={sub.id} className={`flex items-center gap-3 px-4 py-2 ${category ? 'pl-[18px]' : ''}`}>
               <button
                 onClick={() => toggleSubTask(todo.id, sub.id)}
+                aria-label={sub.completed ? '완료 취소' : '완료 처리'}
                 className={`flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-200 ${
                   sub.completed
-                    ? 'bg-sky-500 border-sky-500'
+                    ? 'bg-leaf-300 border-leaf-300'
                     : 'border-gray-300 dark:border-gray-600'
                 }`}
               >
-                {sub.completed && <Check size={8} className="text-white stroke-[3px]" />}
+                {sub.completed && <Check size={8} className="text-leaf-800 stroke-[3px]" />}
               </button>
               <span className={`text-sm flex-1 transition-colors ${
                 sub.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'
@@ -181,7 +186,7 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
           ) : (
             <button
               onClick={openSubtaskAdd}
-              className={`flex items-center gap-2 px-4 py-2 w-full text-left text-xs text-gray-400 dark:text-gray-500 hover:text-sky-500 dark:hover:text-sky-400 transition-colors ${category ? 'pl-[18px]' : ''}`}
+              className={`flex items-center gap-2 px-4 py-2 w-full text-left text-xs text-gray-400 dark:text-gray-500 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors ${category ? 'pl-[18px]' : ''}`}
             >
               <Plus size={13} />
               하위 항목 추가

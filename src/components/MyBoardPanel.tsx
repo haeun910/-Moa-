@@ -14,9 +14,9 @@ function BoardTodo({ todo, onToggle }: { todo: Todo; onToggle: () => void }) {
       onClick={onToggle}
     >
       <div className={`flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-        todo.completed ? 'bg-sky-500 border-sky-500' : 'border-gray-300 dark:border-gray-500'
+        todo.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-500'
       }`}>
-        {todo.completed && <Check size={9} className="text-white" strokeWidth={3} />}
+        {todo.completed && <Check size={9} className="text-leaf-800" strokeWidth={3} />}
       </div>
       <div className="flex-1 min-w-0">
         {cat && <div className="w-full h-0.5 rounded-full mb-1" style={{ backgroundColor: cat.color }} />}
@@ -80,7 +80,7 @@ function BoardSection({
           onKeyDown={e => { if (e.key === 'Enter') submit(); }}
         />
         {input.trim() && (
-          <button onClick={submit}
+          <button onClick={submit} aria-label="추가"
             className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-white"
             style={{ backgroundColor: accentColor }}>
             <Plus size={11} />
@@ -116,7 +116,7 @@ export default function MyBoardPanel({ onClose }: { onClose: () => void }) {
             <span className="text-lg">📋</span>
             <h2 className="text-base font-bold text-gray-900 dark:text-white">My Board</h2>
           </div>
-          <button onClick={onClose}
+          <button onClick={onClose} aria-label="닫기"
             className="w-7 h-7 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X size={16} />
           </button>
@@ -127,7 +127,7 @@ export default function MyBoardPanel({ onClose }: { onClose: () => void }) {
           <BoardSection
             title="오늘 할 일"
             subtitle={format(new Date(), 'M월 d일 EEEE', { locale: ko })}
-            accentColor="#0ea5e9"
+            accentColor="#687D2F"
             todos={todayTodos}
             onToggle={id => toggleTodo(id)}
             onAdd={title => add(title, todayStr)}

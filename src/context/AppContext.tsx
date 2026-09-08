@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import type { DbTodo, DbCategory, DbNote, DbSettings, DbSubtask, DbMonthlyGoal, DbDDay } from '../lib/supabase';
+import { supabase, ADMIN_USER_ID } from '../lib/supabase';
+import type { DbTodo, DbCategory, DbNote, DbSettings, DbSubtask, DbMonthlyGoal, DbDDay, DbNotice } from '../lib/supabase';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format } from 'date-fns';
-import type { Todo, Category, Note, Settings, SubTask, Screen, MonthlyGoal, DDay } from '../types';
+import type { Todo, Category, Note, Settings, SubTask, Screen, MonthlyGoal, DDay, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toSubTask(s: DbSubtask): SubTask {
@@ -42,6 +42,10 @@ function toDDay(d: DbDDay): DDay {
   return { id: d.id, title: d.title, targetDate: d.target_date };
 }
 
+function toNotice(n: DbNotice): Notice {
+  return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
+}
+
 function toSettings(s: DbSettings): Settings {
   return { theme: s.theme, defaultScreen: s.default_screen, notifications: s.notifications };
 }
@@ -54,6 +58,8 @@ interface AppContextType {
   settings: Settings;
   monthlyGoals: MonthlyGoal[];
   ddays: DDay[];
+  notices: Notice[];
+  isAdmin: boolean;
   currentScreen: Screen;
   selectedDate: string;
   dataLoading: boolean;
@@ -77,6 +83,9 @@ interface AppContextType {
   deleteMonthlyGoal: (id: string) => Promise<void>;
   addDDay: (title: string, targetDate: string) => Promise<void>;
   deleteDDay: (id: string) => Promise<void>;
+  addNotice: (title: string, content: string) => Promise<void>;
+  updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
+  deleteNotice: (id: string) => Promise<void>;
   setCurrentScreen: (screen: Screen) => void;
   setSelectedDate: (date: string) => void;
 }
@@ -98,6 +107,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
   const [ddays, setDDays] = useState<DDay[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const isAdmin = user?.id === ADMIN_USER_ID;
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dataLoading, setDataLoading] = useState(true);
@@ -108,7 +119,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) {
       setTodos([]); setCategories([]); setNotes([]);
-      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]);
+      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setNotices([]);
       setDataLoading(false);
       return;
     }
@@ -121,12 +132,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       db.fetchSettings(user.id),
       db.fetchMonthlyGoals(user.id),
       db.fetchDDays(user.id),
-    ]).then(([rawTodos, rawCats, rawNotes, rawSettings, rawGoals, rawDDays]) => {
+      db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
+    ]).then(([rawTodos, rawCats, rawNotes, rawSettings, rawGoals, rawDDays, rawNotices]) => {
       setTodos(rawTodos.map(toTodo));
       setCategories(rawCats.map(toCategory));
       setNotes(rawNotes.map(toNote));
       setMonthlyGoals(rawGoals.map(toMonthlyGoal));
       setDDays(rawDDays.map(toDDay));
+      setNotices(rawNotices.map(toNotice));
       if (rawSettings) {
         const s = toSettings(rawSettings);
         setSettings(s);
@@ -174,6 +187,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         async () => {
           const rows = await db.fetchNotes(user.id);
           setNotes(rows.map(toNote));
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' },
+        async () => {
+          const rows = await db.fetchNotices().catch(() => []);
+          setNotices(rows.map(toNotice));
         })
       .subscribe();
 
@@ -331,6 +349,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.deleteDDay(id);
   }, []);
 
+  // ── 공지사항 ───────────────────────────────────────
+  const addNotice = useCallback(async (title: string, content: string) => {
+    const row = await db.createNotice(title, content);
+    setNotices(prev => [toNotice(row), ...prev]);
+  }, []);
+
+  const updateNotice = useCallback(async (id: string, updates: { title?: string; content?: string }) => {
+    setNotices(prev => prev.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n));
+    await db.updateNotice(id, updates);
+  }, []);
+
+  const deleteNotice = useCallback(async (id: string) => {
+    setNotices(prev => prev.filter(n => n.id !== id));
+    await db.deleteNotice(id);
+  }, []);
+
   // ── Settings ─────────────────────────────────────────────
   const updateSettings = useCallback(async (updates: Partial<Settings>) => {
     if (!user) return;
@@ -344,13 +378,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      todos, categories, notes, settings, monthlyGoals, ddays, currentScreen, selectedDate, dataLoading,
+      todos, categories, notes, settings, monthlyGoals, ddays, notices, isAdmin, currentScreen, selectedDate, dataLoading,
       addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, addSubtaskInline, reorderTodos,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addNote, updateNote, deleteNote,
       updateSettings,
       addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
       addDDay, deleteDDay,
+      addNotice, updateNotice, deleteNotice,
       setCurrentScreen, setSelectedDate,
     }}>
       {children}

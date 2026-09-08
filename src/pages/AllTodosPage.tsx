@@ -21,7 +21,7 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mt-1 bg-gray-50/50 dark:bg-gray-900/30 hover:border-sky-300 dark:hover:border-sky-700 transition-colors group">
+    <div className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl mt-1 bg-gray-50/50 dark:bg-gray-900/30 hover:border-leaf-300 dark:hover:border-leaf-700 transition-colors group">
       <input
         ref={ref}
         type="text"
@@ -32,8 +32,8 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
         onKeyDown={e => { if (e.key === 'Enter') submit(); }}
       />
       {title.trim() && (
-        <button onClick={submit} disabled={loading}
-          className="w-6 h-6 rounded-lg bg-sky-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+        <button onClick={submit} disabled={loading} aria-label="추가"
+          className="w-6 h-6 rounded-lg bg-leaf-300 flex items-center justify-center text-leaf-800 flex-shrink-0 shadow-sm">
           <Send size={10} />
         </button>
       )}
@@ -94,7 +94,7 @@ export default function AllTodosPage() {
       <>
         <button
           onClick={e => { e.stopPropagation(); sendToToday(todo); }}
-          className="flex items-center gap-1 text-[10px] font-semibold text-sky-600 hover:text-white bg-sky-50 hover:bg-sky-500 dark:bg-sky-900/30 dark:hover:bg-sky-500 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
+          className="flex items-center gap-1 text-[10px] font-semibold text-leaf-600 hover:text-leaf-800 dark:text-leaf-400 dark:hover:text-leaf-200 bg-leaf-50 hover:bg-leaf-300 dark:bg-leaf-900/30 dark:hover:bg-leaf-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
           title="오늘 날짜로 이동"
         >
           <CalendarCheck size={11} />
@@ -155,11 +155,11 @@ export default function AllTodosPage() {
               placeholder={`${cat?.name ?? ''} 할 일 추가...`}
               className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
               onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
-            <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading}
-              className="flex-shrink-0 w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-40 text-white flex items-center justify-center shadow-sm">
+            <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading} aria-label="추가"
+              className="flex-shrink-0 w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center shadow-sm">
               <Send size={14} />
             </button>
-            <button onClick={() => { setEditTodo(undefined); setShowModal(true); }}
+            <button onClick={() => { setEditTodo(undefined); setShowModal(true); }} aria-label="상세 옵션으로 추가"
               className="flex-shrink-0 w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center">
               <Plus size={16} />
             </button>
@@ -193,11 +193,11 @@ export default function AllTodosPage() {
           <div className="flex items-center gap-1.5 mb-0.5">
             <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-sky-500 rounded-full transition-all duration-500"
+                className="h-full bg-leaf-500 rounded-full transition-all duration-500"
                 style={{ width: `${Math.round((completedCount / repoTodoCount) * 100)}%` }}
               />
             </div>
-            <span className="text-xs font-semibold text-sky-500">
+            <span className="text-xs font-semibold text-leaf-500">
               {Math.round((completedCount / repoTodoCount) * 100)}%
             </span>
           </div>
@@ -250,11 +250,11 @@ export default function AllTodosPage() {
             placeholder="할 일 빠르게 추가 (날짜 없이 보관)"
             className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
             onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
-          <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading}
-            className="flex-shrink-0 w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-40 text-white flex items-center justify-center shadow-sm">
+          <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading} aria-label="추가"
+            className="flex-shrink-0 w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center shadow-sm">
             <Send size={14} />
           </button>
-          <button onClick={() => { setEditTodo(undefined); setShowModal(true); }}
+          <button onClick={() => { setEditTodo(undefined); setShowModal(true); }} aria-label="상세 옵션으로 추가"
             className="flex-shrink-0 w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center">
             <Plus size={16} />
           </button>

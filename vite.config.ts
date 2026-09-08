@@ -9,10 +9,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
-        name: 'All Planner',
-        short_name: 'Planner',
+        name: '모아',
+        short_name: '모아',
         description: '할 일 & 일정 관리 앱',
-        theme_color: '#6366f1',
+        theme_color: '#86A03F',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
@@ -22,10 +22,8 @@ export default defineConfig({
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        screenshots: [
-          { src: '/icons/screenshot-mobile.png', sizes: '390x844', type: 'image/png', form_factor: 'narrow' },
-          { src: '/icons/screenshot-desktop.png', sizes: '1280x800', type: 'image/png', form_factor: 'wide' },
-        ],
+        // 실제 스크린샷 캡처본이 준비되면 screenshots 배열을 다시 추가하세요.
+        // (존재하지 않는 파일을 참조하면 설치 UI가 깨진 이미지를 시도합니다)
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

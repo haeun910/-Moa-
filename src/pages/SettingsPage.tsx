@@ -1,7 +1,12 @@
 import { useState } from 'react';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info } from 'lucide-react';
+import { format } from 'date-fns';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { usePwaInstall } from '../hooks/usePwaInstall';
+import ChangePasswordModal from '../components/ChangePasswordModal';
+import DeleteAccountModal from '../components/DeleteAccountModal';
+import InstallInstructionsModal from '../components/InstallInstructionsModal';
 import type { Settings } from '../types';
 
 const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
@@ -11,11 +16,36 @@ const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, todos, notes, monthlyGoals, ddays, setCurrentScreen } = useApp();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
   async function handleSignOut() { setSigningOut(true); await signOut(); }
+
+  async function handleInstallClick() {
+    if (canPromptDirectly) await promptInstall();
+    else setShowInstallInstructions(true);
+  }
+
+  const hasEmailPassword = user?.app_metadata?.providers?.includes('email') ?? false;
+
+  function handleExport() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      todos, categories, notes, monthlyGoals, ddays,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `moa-backup-${format(new Date(), 'yyyyMMdd')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const displayName = user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? '';
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -31,23 +61,23 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">설정</h1>
 
       {/* Profile card */}
-      <div className="bg-gradient-to-br from-sky-500 to-indigo-600 rounded-3xl p-5 mb-5 shadow-lg shadow-sky-500/20">
+      <div className="bg-leaf-300 rounded-3xl p-5 mb-5">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border border-white/30">
+          <div className="w-14 h-14 rounded-2xl bg-leaf-800/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border border-leaf-800/15">
             {user?.user_metadata?.avatar_url ? (
               <img src={user.user_metadata.avatar_url} className="w-14 h-14 rounded-2xl object-cover" alt="" />
             ) : (
-              <span className="text-xl font-bold text-white">{initials || '?'}</span>
+              <span className="text-xl font-bold text-leaf-800">{initials || '?'}</span>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-white truncate">{displayName || '사용자'}</p>
-            <p className="text-sm text-white/70 truncate mt-0.5">{user?.email}</p>
+            <p className="text-base font-bold text-leaf-900 truncate">{displayName || '사용자'}</p>
+            <p className="text-sm text-leaf-700 truncate mt-0.5">{user?.email}</p>
           </div>
           <button
             onClick={handleSignOut}
             disabled={signingOut}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition-colors border border-white/20 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-leaf-800/10 hover:bg-leaf-800/15 text-leaf-800 text-xs font-semibold transition-colors border border-leaf-800/15 disabled:opacity-50"
           >
             <LogOut size={13} />
             {signingOut ? '...' : '로그아웃'}
@@ -68,7 +98,7 @@ export default function SettingsPage() {
                 onClick={() => updateSettings({ theme: value })}
                 className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all text-sm font-semibold ${
                   settings.theme === value
-                    ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400'
+                    ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
                     : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
@@ -88,7 +118,7 @@ export default function SettingsPage() {
             <select
               value={settings.defaultScreen}
               onChange={e => updateSettings({ defaultScreen: e.target.value as Settings['defaultScreen'] })}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-medium cursor-pointer"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-500 text-sm font-medium cursor-pointer"
             >
               {SCREEN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -100,8 +130,8 @@ export default function SettingsPage() {
           {/* Notifications */}
           <div className="px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${settings.notifications ? 'bg-sky-100 dark:bg-sky-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                <Bell size={15} className={settings.notifications ? 'text-sky-500' : 'text-gray-400'} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${settings.notifications ? 'bg-leaf-100 dark:bg-leaf-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                <Bell size={15} className={settings.notifications ? 'text-leaf-500' : 'text-gray-400'} />
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-800 dark:text-white">알림</p>
@@ -110,9 +140,12 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => updateSettings({ notifications: !settings.notifications })}
-              className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${settings.notifications ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-700'}`}
+              role="switch"
+              aria-checked={settings.notifications}
+              aria-label="알림"
+              className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${settings.notifications ? 'bg-leaf-600' : 'bg-gray-300 dark:bg-gray-700'}`}
             >
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.notifications ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.notifications ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
           </div>
 
@@ -122,8 +155,8 @@ export default function SettingsPage() {
             className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
-                <Tag size={15} className="text-violet-500" />
+              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                <Tag size={15} className="text-leaf-600" />
               </div>
               <div className="text-left">
                 <p className="text-sm font-semibold text-gray-800 dark:text-white">카테고리 관리</p>
@@ -134,17 +167,122 @@ export default function SettingsPage() {
           </button>
         </section>
 
+        {/* 계정 & 데이터 */}
+        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+          {hasEmailPassword && (
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                  <KeyRound size={15} className="text-leaf-600" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">비밀번호 변경</p>
+              </div>
+              <ChevronRight size={16} className="text-gray-400" />
+            </button>
+          )}
+
+          <button
+            onClick={handleExport}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                <FileDown size={15} className="text-leaf-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">데이터 내보내기</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">할 일 · 메모 등을 JSON 파일로 백업</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                <UserX size={15} className="text-red-500" />
+              </div>
+              <p className="text-sm font-semibold text-red-600 dark:text-red-400">계정 삭제</p>
+            </div>
+          </button>
+        </section>
+
+        {/* 약관 */}
+        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+          <button
+            onClick={() => setCurrentScreen('terms')}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <FileText size={15} className="text-gray-500" />
+              </div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-white">이용약관</p>
+            </div>
+            <ChevronRight size={16} className="text-gray-400" />
+          </button>
+          <button
+            onClick={() => setCurrentScreen('privacy')}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <ShieldCheck size={15} className="text-gray-500" />
+              </div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-white">개인정보처리방침</p>
+            </div>
+            <ChevronRight size={16} className="text-gray-400" />
+          </button>
+        </section>
+
+        {/* 앱 다운로드 */}
+        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          {isInstalled ? (
+            <div className="px-4 py-4 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                <CheckCircle2 size={15} className="text-leaf-600" />
+              </div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-white">앱이 이미 설치되어 있어요</p>
+            </div>
+          ) : (
+            <button
+              onClick={handleInstallClick}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                  <Download size={15} className="text-leaf-600" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white">앱 다운로드</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">홈 화면에 추가하면 더 편리해요</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-gray-400" />
+            </button>
+          )}
+        </section>
+
         {/* App info */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
           <div className="px-4 py-3.5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center flex-shrink-0">
-              <Info size={14} className="text-white" />
+            <div className="w-8 h-8 rounded-lg bg-leaf-300 flex items-center justify-center flex-shrink-0">
+              <Info size={14} className="text-leaf-800" />
             </div>
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">All Planner</span>
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">모아(Moa)</span>
             <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">v1.0.0</span>
           </div>
         </section>
       </div>
+
+      {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
+      {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
+      {showInstallInstructions && <InstallInstructionsModal onClose={() => setShowInstallInstructions(false)} />}
     </div>
   );
 }

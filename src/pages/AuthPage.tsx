@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Logo from '../components/Logo';
 
 type Mode = 'login' | 'signup' | 'forgot';
 
@@ -52,18 +53,17 @@ export default function AuthPage() {
     if (error) setError(error);
   }
 
-  const inputClass = "w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm transition-all";
+  const inputClass = "w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-500 focus:border-transparent text-sm transition-all";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-sky-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-leaf-50 dark:bg-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex w-16 h-16 rounded-3xl items-center justify-center mb-4 shadow-xl shadow-sky-500/30"
-            style={{ background: 'linear-gradient(135deg, #0ea5e9, #6366f1)' }}>
-            <Sparkles size={28} className="text-white" />
+          <div className="inline-flex rounded-3xl overflow-hidden mb-4 shadow-lg shadow-leaf-500/25">
+            <Logo size={64} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">All Planner</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">모아</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5">할 일과 일정을 한 곳에서 관리해요</p>
         </div>
 
@@ -89,7 +89,7 @@ export default function AuthPage() {
 
           {mode === 'forgot' && (
             <div className="mb-5">
-              <button onClick={() => { setMode('login'); reset(); }} className="text-sm text-sky-600 dark:text-sky-400 font-semibold">← 로그인으로 돌아가기</button>
+              <button onClick={() => { setMode('login'); reset(); }} className="text-sm text-leaf-600 dark:text-leaf-400 font-semibold">← 로그인으로 돌아가기</button>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white mt-3 mb-1">비밀번호 재설정</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">가입한 이메일 주소를 입력하면 재설정 링크를 보내드려요.</p>
             </div>
@@ -135,7 +135,7 @@ export default function AuthPage() {
             {mode === 'login' && (
               <div className="text-right">
                 <button type="button" onClick={() => { setMode('forgot'); reset(); }}
-                  className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-medium">
+                  className="text-xs text-leaf-600 dark:text-leaf-400 hover:underline font-medium">
                   비밀번호를 잊으셨나요?
                 </button>
               </div>
@@ -155,8 +155,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all duration-200 mt-1 shadow-lg disabled:opacity-50 hover:opacity-90 active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #0ea5e9, #6366f1)' }}
+              className="w-full py-3 rounded-xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 font-bold text-sm transition-all duration-200 mt-1 disabled:opacity-50 active:scale-[0.98]"
             >
               {loading ? '처리 중...' : mode === 'login' ? '로그인' : mode === 'signup' ? '가입하기' : '재설정 이메일 보내기'}
             </button>

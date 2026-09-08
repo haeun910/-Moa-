@@ -8,7 +8,7 @@ import type { Note } from '../types';
 
 const NOTE_COLORS = [
   'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-800/40',
-  'bg-sky-50 dark:bg-sky-900/20 border-sky-200/60 dark:border-sky-800/40',
+  'bg-leaf-50 dark:bg-leaf-900/20 border-leaf-200/60 dark:border-leaf-800/40',
   'bg-violet-50 dark:bg-violet-900/20 border-violet-200/60 dark:border-violet-800/40',
   'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200/60 dark:border-emerald-800/40',
   'bg-rose-50 dark:bg-rose-900/20 border-rose-200/60 dark:border-rose-800/40',
@@ -17,7 +17,7 @@ const NOTE_COLORS = [
 
 const NOTE_TITLE_COLORS = [
   'text-amber-700 dark:text-amber-300',
-  'text-sky-700 dark:text-sky-300',
+  'text-leaf-700 dark:text-leaf-300',
   'text-violet-700 dark:text-violet-300',
   'text-emerald-700 dark:text-emerald-300',
   'text-rose-700 dark:text-rose-300',
@@ -65,7 +65,7 @@ export default function NotesPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="메모 검색..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent shadow-sm transition-all"
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 focus:border-transparent shadow-sm transition-all"
           />
         </div>
       )}
@@ -110,7 +110,8 @@ export default function NotesPage() {
       {/* FAB */}
       <button
         onClick={() => { setEditNote(undefined); setShowModal(true); }}
-        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/30 hover:shadow-xl hover:shadow-sky-500/40 transition-all duration-200 flex items-center justify-center hover:-translate-y-0.5"
+        aria-label="새 메모"
+        className="fixed bottom-[78px] right-5 w-14 h-14 rounded-2xl bg-leaf-300 hover:bg-leaf-400 text-leaf-800 shadow-lg shadow-leaf-500/30 hover:shadow-xl hover:shadow-leaf-500/40 transition-all duration-200 flex items-center justify-center hover:-translate-y-0.5"
       >
         <Plus size={24} strokeWidth={2.5} />
       </button>

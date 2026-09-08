@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, GripVertical, CalendarPlus, LayoutDashboard, BarChart3 } from 'lucide-react';
+import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, GripVertical, CalendarPlus, LayoutDashboard, BarChart3, Clock10, Megaphone } from 'lucide-react';
 import MyBoardPanel from '../components/MyBoardPanel';
 import AchievementModal from '../components/AchievementModal';
+import NoticeModal from '../components/NoticeModal';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -33,7 +34,7 @@ function DraggableRepoItem({ todo }: { todo: Todo }) {
       {...attributes}
       className={`flex items-center gap-2 px-2 py-2 rounded-lg transition-all cursor-grab active:cursor-grabbing touch-none select-none text-left ${
         isDragging
-          ? 'opacity-40 bg-sky-50 dark:bg-sky-900/20'
+          ? 'opacity-40 bg-leaf-50 dark:bg-leaf-900/20'
           : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
       }`}
     >
@@ -50,7 +51,7 @@ function DroppableDatePanel({ children, isOpen }: { children: React.ReactNode; i
     <div
       ref={setNodeRef}
       className={`flex-1 overflow-y-auto px-5 pt-3 pb-28 transition-colors rounded-xl ${
-        isOver && isOpen ? 'bg-sky-50 dark:bg-sky-900/10' : ''
+        isOver && isOpen ? 'bg-leaf-50 dark:bg-leaf-900/10' : ''
       }`}
     >
       {children}
@@ -62,7 +63,7 @@ export default function TodayPage() {
   const {
     todos, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
-    ddays, addDDay, deleteDDay,
+    ddays, addDDay, deleteDDay, notices, setCurrentScreen,
   } = useApp();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -91,6 +92,17 @@ export default function TodayPage() {
   const [weekAddTitle, setWeekAddTitle] = useState('');
   const [showBoard, setShowBoard] = useState(false);
   const [showAchievement, setShowAchievement] = useState(false);
+  const [showNotice, setShowNotice] = useState(false);
+  const [lastSeenNotice, setLastSeenNotice] = useState(() => localStorage.getItem('notice-last-seen') ?? '');
+  const hasUnreadNotice = notices.length > 0 && notices[0].createdAt !== lastSeenNotice;
+
+  function openNotice() {
+    setShowNotice(true);
+    if (notices[0]) {
+      localStorage.setItem('notice-last-seen', notices[0].createdAt);
+      setLastSeenNotice(notices[0].createdAt);
+    }
+  }
 
   // DnD
   const [draggingTodo, setDraggingTodo] = useState<Todo | null>(null);
@@ -165,7 +177,7 @@ export default function TodayPage() {
     <div className="h-screen pb-[62px] overflow-hidden flex flex-col lg:flex-row">
 
       {/* ── 달력 + 저장소 영역 ── */}
-      <div className={`flex flex-col overflow-hidden ${panelOpen ? 'h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
+      <div className={`flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${panelOpen ? 'h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
 
         <div className="flex-1 flex flex-col px-5 pt-4 pb-4 min-h-0">
 
@@ -173,10 +185,10 @@ export default function TodayPage() {
           <div className="flex-shrink-0 grid grid-cols-2 gap-3 mb-3">
 
             {/* 이번달 목표 */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3 flex flex-col gap-2 min-h-[130px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3.5 flex flex-col gap-2 min-h-[168px]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Flag size={13} className="text-sky-500" />
+                  <Flag size={13} className="text-leaf-500" />
                   <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                     {format(viewMonth, 'M월')} 목표
                   </span>
@@ -184,24 +196,25 @@ export default function TodayPage() {
                 <span className="text-[10px] text-gray-400">{completedGoals}/{monthGoals.length}</span>
               </div>
 
-              <div className="flex-1 space-y-1 overflow-y-auto max-h-[80px]">
+              <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[112px]">
                 {monthGoals.length === 0 && (
-                  <p className="text-[11px] text-gray-300 dark:text-gray-600">목표를 입력해보세요</p>
+                  <p className="text-xs text-gray-300 dark:text-gray-600">목표를 입력해보세요</p>
                 )}
                 {monthGoals.map(g => (
-                  <div key={g.id} className="flex items-center gap-1.5 group">
+                  <div key={g.id} className="flex items-center gap-2 group">
                     <button onClick={() => toggleMonthlyGoal(g.id)}
-                      className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                        g.completed ? 'bg-sky-500 border-sky-500' : 'border-gray-300 dark:border-gray-600'
+                      aria-label={g.completed ? '완료 취소' : '완료 처리'}
+                      className={`flex-shrink-0 w-[18px] h-[18px] rounded border flex items-center justify-center transition-colors ${
+                        g.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-600'
                       }`}>
-                      {g.completed && <Check size={9} className="text-white" strokeWidth={3} />}
+                      {g.completed && <Check size={10} className="text-leaf-800" strokeWidth={3} />}
                     </button>
-                    <span className={`flex-1 text-[11px] leading-tight ${g.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <span className={`flex-1 text-xs leading-tight ${g.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
                       {g.title}
                     </span>
-                    <button onClick={() => deleteMonthlyGoal(g.id)}
+                    <button onClick={() => deleteMonthlyGoal(g.id)} aria-label="목표 삭제"
                       className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                      <X size={11} />
+                      <X size={12} />
                     </button>
                   </div>
                 ))}
@@ -214,30 +227,30 @@ export default function TodayPage() {
             </div>
 
             {/* D-Day */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3 flex flex-col gap-2 min-h-[130px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3.5 flex flex-col gap-2 min-h-[168px]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-700 dark:text-gray-300">D-Day</span>
-                <button onClick={() => setShowDdayForm(v => !v)}
+                <button onClick={() => setShowDdayForm(v => !v)} aria-label="D-Day 추가"
                   className="w-5 h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
                   <Plus size={11} />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-1 overflow-y-auto max-h-[60px]">
+              <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[92px]">
                 {ddays.length === 0 && (
-                  <p className="text-[11px] text-gray-300 dark:text-gray-600">디데이를 추가해보세요</p>
+                  <p className="text-xs text-gray-300 dark:text-gray-600">디데이를 추가해보세요</p>
                 )}
                 {ddays.map(d => (
-                  <div key={d.id} className="flex items-center gap-1.5 group">
-                    <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md min-w-[40px] text-center ${
+                  <div key={d.id} className="flex items-center gap-2 group">
+                    <span className={`flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[44px] text-center ${
                       differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0
-                        ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400'
+                        ? 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
                     }`}>{ddayLabel(d.targetDate)}</span>
-                    <span className="flex-1 text-[11px] text-gray-700 dark:text-gray-300 truncate">{d.title}</span>
-                    <button onClick={() => deleteDDay(d.id)}
+                    <span className="flex-1 text-xs text-gray-700 dark:text-gray-300 truncate">{d.title}</span>
+                    <button onClick={() => deleteDDay(d.id)} aria-label="D-Day 삭제"
                       className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                      <Trash2 size={11} />
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 ))}
@@ -252,7 +265,7 @@ export default function TodayPage() {
                     <input type="date" value={ddayDate} onChange={e => setDdayDate(e.target.value)}
                       className="flex-1 text-[11px] bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none" />
                     <button onClick={handleAddDDay}
-                      className="text-[10px] px-2 py-0.5 rounded-md bg-sky-500 text-white font-medium">추가</button>
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-leaf-300 text-leaf-800 font-medium">추가</button>
                   </div>
                 </div>
               )}
@@ -267,37 +280,37 @@ export default function TodayPage() {
               <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-xs font-semibold">
                 <button
                   onClick={() => setCalView('month')}
-                  className={`px-3 py-1.5 transition-colors ${calView === 'month' ? 'bg-sky-500 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  className={`px-3 py-1.5 transition-colors ${calView === 'month' ? 'bg-leaf-300 text-leaf-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                 >월</button>
                 <button
                   onClick={() => setCalView('week')}
-                  className={`px-3 py-1.5 transition-colors ${calView === 'week' ? 'bg-sky-500 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  className={`px-3 py-1.5 transition-colors ${calView === 'week' ? 'bg-leaf-300 text-leaf-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                 >주</button>
               </div>
               {calView === 'month' ? (
                 <>
-                  <button onClick={() => setViewMonth(m => subMonths(m, 1))}
+                  <button onClick={() => setViewMonth(m => subMonths(m, 1))} aria-label="이전 달"
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronLeft size={15} />
                   </button>
                   <h1 className="text-base font-bold text-gray-900 dark:text-white">
                     {format(viewMonth, 'yyyy년 M월', { locale: ko })}
                   </h1>
-                  <button onClick={() => setViewMonth(m => addMonths(m, 1))}
+                  <button onClick={() => setViewMonth(m => addMonths(m, 1))} aria-label="다음 달"
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronRight size={15} />
                   </button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => setWeekRef(w => subWeeks(w, 1))}
+                  <button onClick={() => setWeekRef(w => subWeeks(w, 1))} aria-label="이전 주"
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronLeft size={15} />
                   </button>
                   <span className="text-sm font-bold text-gray-900 dark:text-white">
                     {format(startOfWeek(weekRef, { weekStartsOn: 0 }), 'M.d')} - {format(endOfWeek(weekRef, { weekStartsOn: 0 }), 'M.d')}
                   </span>
-                  <button onClick={() => setWeekRef(w => addWeeks(w, 1))}
+                  <button onClick={() => setWeekRef(w => addWeeks(w, 1))} aria-label="다음 주"
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronRight size={15} />
                   </button>
@@ -308,15 +321,22 @@ export default function TodayPage() {
                 오늘
               </button>
             </div>
-            {/* 내보드 / 성취리포트 */}
+            {/* 공지사항 / 내보드 / 성취리포트 */}
             <div className="flex items-center gap-1">
+              <button onClick={openNotice} aria-label="공지사항" title="공지사항"
+                className="relative flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
+                <Megaphone size={13} />
+                {hasUnreadNotice && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-950" />
+                )}
+              </button>
               <button onClick={() => setShowBoard(true)}
                 className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
                 <LayoutDashboard size={13} />
                 내 보드
               </button>
               <button onClick={() => setShowAchievement(true)}
-                className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 border border-sky-200 dark:border-sky-800 transition-colors">
+                className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs font-semibold text-leaf-600 dark:text-leaf-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 border border-leaf-200 dark:border-leaf-800 transition-colors">
                 <BarChart3 size={13} />
                 성취 리포트
               </button>
@@ -325,13 +345,13 @@ export default function TodayPage() {
 
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
-            <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col ${
-              panelOpen ? 'flex-shrink-0' : 'flex-1 min-h-0'
-            }`} style={panelOpen ? { height: '280px' } : {}}>
+            <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0 max-h-[420px]'
+            }`}>
               <div className="flex-shrink-0 grid grid-cols-7 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
                   <div key={d} className={`py-1.5 text-center text-[11px] font-semibold ${
-                    i === 0 ? 'text-red-400' : i === 6 ? 'text-sky-400' : 'text-gray-400'
+                    i === 0 ? 'text-red-400' : i === 6 ? 'text-leaf-400' : 'text-gray-400'
                   }`}>{d}</div>
                 ))}
               </div>
@@ -347,12 +367,12 @@ export default function TodayPage() {
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
                       className={`flex flex-col items-start p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left overflow-hidden ${
                         inMonth ? '' : 'opacity-25'
-                      } ${isSelected ? 'bg-sky-50 dark:bg-sky-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
+                      } ${isSelected ? 'bg-leaf-50 dark:bg-leaf-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
                     >
                       <span className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-md text-[11px] font-bold mb-0.5 ${
-                        isSelected ? 'bg-sky-500 text-white'
-                        : isToday ? 'bg-sky-500 text-white'
-                        : dow === 0 ? 'text-red-500 font-bold' : dow === 6 ? 'text-sky-600 font-bold' : 'text-gray-800 dark:text-gray-100'
+                        isSelected ? 'bg-leaf-300 text-leaf-800'
+                        : isToday ? 'bg-leaf-300 text-leaf-800'
+                        : dow === 0 ? 'text-red-500 font-bold' : dow === 6 ? 'text-leaf-600 font-bold' : 'text-gray-800 dark:text-gray-100'
                       }`}>
                         {format(day, 'd')}
                       </span>
@@ -360,7 +380,7 @@ export default function TodayPage() {
                         {dayTodos.slice(0, 2).map(t => (
                           <div key={t.id} className={`w-full text-[9px] leading-tight px-1 py-0.5 rounded truncate ${
                             t.completed ? 'bg-gray-100 dark:bg-gray-800 text-gray-400'
-                            : 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300'
+                            : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-700 dark:text-leaf-300'
                           }`}>{t.title}</div>
                         ))}
                         {dayTodos.length > 2 && <div className="text-[9px] text-gray-400 pl-0.5">+{dayTodos.length - 2}</div>}
@@ -372,9 +392,9 @@ export default function TodayPage() {
             </div>
           ) : (
             /* ── 주간 뷰 (인라인) ── */
-            <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col ${
-              panelOpen ? 'flex-shrink-0' : 'flex-1 min-h-0'
-            }`} style={panelOpen ? { height: '280px' } : {}}>
+            <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0 max-h-[420px]'
+            }`}>
               <div className="flex-1 overflow-auto p-2">
                 <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '220px' }}>
                   {eachDayOfInterval({
@@ -390,18 +410,18 @@ export default function TodayPage() {
                       <div key={dateStr}
                         className={`flex flex-col rounded-xl p-2 ${
                           isToday
-                            ? 'bg-sky-50 dark:bg-sky-900/20 ring-2 ring-sky-400'
+                            ? 'bg-leaf-50 dark:bg-leaf-900/20 ring-2 ring-leaf-400'
                             : 'bg-gray-50 dark:bg-gray-800/40'
                         }`}
                       >
                         <div className="text-center mb-1.5 flex-shrink-0">
                           <p className={`text-[9px] font-bold tracking-wide ${
-                            dow === 0 ? 'text-red-500' : dow === 6 ? 'text-sky-500' : 'text-gray-400'
+                            dow === 0 ? 'text-red-500' : dow === 6 ? 'text-leaf-500' : 'text-gray-400'
                           }`}>{DAY_LABELS[dow]}</p>
                           <p className={`text-base font-bold leading-tight ${
-                            isToday ? 'text-sky-600'
+                            isToday ? 'text-leaf-600'
                             : dow === 0 ? 'text-red-500'
-                            : dow === 6 ? 'text-sky-500'
+                            : dow === 6 ? 'text-leaf-500'
                             : 'text-gray-800 dark:text-gray-100'
                           }`}>{format(day, 'd')}</p>
                           {dayTodos.length > 0 && (
@@ -415,9 +435,9 @@ export default function TodayPage() {
                               onClick={() => toggleTodo(todo.id)}
                             >
                               <div className={`flex-shrink-0 mt-0.5 w-3 h-3 rounded border-2 flex items-center justify-center transition-colors ${
-                                todo.completed ? 'bg-sky-500 border-sky-500' : 'border-gray-300 dark:border-gray-600 group-hover:border-sky-400'
+                                todo.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-600 group-hover:border-leaf-400'
                               }`}>
-                                {todo.completed && <Check size={6} className="text-white" strokeWidth={3} />}
+                                {todo.completed && <Check size={6} className="text-leaf-800" strokeWidth={3} />}
                               </div>
                               <span className={`text-[10px] leading-snug break-words ${
                                 todo.completed ? 'line-through text-gray-300' : 'text-gray-700 dark:text-gray-300'
@@ -432,7 +452,7 @@ export default function TodayPage() {
                               value={weekAddTitle}
                               onChange={e => setWeekAddTitle(e.target.value)}
                               placeholder="추가..."
-                              className="flex-1 min-w-0 text-[10px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                              className="flex-1 min-w-0 text-[10px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-leaf-400"
                               onKeyDown={async e => {
                                 if (e.key === 'Enter') {
                                   const t = weekAddTitle.trim();
@@ -447,7 +467,7 @@ export default function TodayPage() {
                         ) : (
                           <button
                             onClick={() => { setWeekAddDate(dateStr); setWeekAddTitle(''); }}
-                            className="mt-1 w-full flex items-center justify-center text-[10px] text-gray-300 dark:text-gray-600 hover:text-sky-500 transition-colors flex-shrink-0 py-0.5"
+                            className="mt-1 w-full flex items-center justify-center text-[10px] text-gray-300 dark:text-gray-600 hover:text-leaf-500 transition-colors flex-shrink-0 py-0.5"
                           >
                             <Plus size={10} />
                           </button>
@@ -464,7 +484,7 @@ export default function TodayPage() {
           {panelOpen && (
             <div className="flex-1 min-h-0 mt-3 flex flex-col overflow-hidden">
               <div className="flex-shrink-0 flex items-center gap-2 mb-1 px-1">
-                <CalendarPlus size={12} className="text-sky-500" />
+                <CalendarPlus size={12} className="text-leaf-500" />
                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">저장소</span>
                 {repoTodos.length > 0 && (
                   <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{repoTodos.length}</span>
@@ -490,7 +510,7 @@ export default function TodayPage() {
 
       {/* ── 오른쪽 패널 (데스크톱) ── */}
       <div className={`hidden lg:flex flex-col border-l border-gray-100 dark:border-gray-800 overflow-hidden transition-all duration-300 ease-in-out relative ${
-        panelOpen ? 'w-[420px] xl:w-[480px] opacity-100' : 'w-0 opacity-0'
+        panelOpen ? 'w-[440px] xl:w-[500px] opacity-100' : 'w-0 opacity-0'
       }`}>
         {panelOpen && (
           <>
@@ -501,10 +521,16 @@ export default function TodayPage() {
                 </h2>
                 <p className="text-xs text-gray-400 mt-0.5">{selectedTodos.length}개의 할 일</p>
               </div>
-              <button onClick={() => setPanelOpen(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
-                <X size={15} />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setCurrentScreen('calendar')} aria-label="시간표 보기" title="시간표 보기"
+                  className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                  <Clock10 size={14} />
+                </button>
+                <button onClick={() => setPanelOpen(false)} aria-label="닫기"
+                  className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                  <X size={15} />
+                </button>
+              </div>
             </div>
             <div className="flex-shrink-0 px-5 pt-3">
               <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
@@ -524,11 +550,11 @@ export default function TodayPage() {
                   onChange={e => setQuickTitle(e.target.value)} placeholder="할 일 빠르게 추가..."
                   className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
                   onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
-                <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading}
-                  className="w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-40 text-white flex items-center justify-center">
+                <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading} aria-label="추가"
+                  className="w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center">
                   <Send size={14} />
                 </button>
-                <button onClick={() => { setEditTodo(undefined); setShowModal(true); }}
+                <button onClick={() => { setEditTodo(undefined); setShowModal(true); }} aria-label="상세 옵션으로 추가"
                   className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 flex items-center justify-center">
                   <Plus size={16} />
                 </button>
@@ -549,10 +575,16 @@ export default function TodayPage() {
             </h2>
             <p className="text-xs text-gray-400">{selectedTodos.length}개</p>
           </div>
-          <button onClick={() => setPanelOpen(false)}
-            className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
-            <X size={13} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setCurrentScreen('calendar')} aria-label="시간표 보기" title="시간표 보기"
+              className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+              <Clock10 size={13} />
+            </button>
+            <button onClick={() => setPanelOpen(false)} aria-label="닫기"
+              className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
+              <X size={13} />
+            </button>
+          </div>
         </div>
         <div className="px-4 flex-shrink-0">
           <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
@@ -570,7 +602,7 @@ export default function TodayPage() {
               className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
               onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
             <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading}
-              className="w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-40 text-white flex items-center justify-center">
+              className="w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center">
               <Send size={14} />
             </button>
             <button onClick={() => { setEditTodo(undefined); setShowModal(true); }}
@@ -584,8 +616,8 @@ export default function TodayPage() {
       {/* DragOverlay */}
       <DragOverlay>
         {draggingTodo && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-sky-300 bg-white dark:bg-gray-900 shadow-xl opacity-90">
-            <GripVertical size={14} className="text-sky-400" />
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-leaf-300 bg-white dark:bg-gray-900 shadow-xl opacity-90">
+            <GripVertical size={14} className="text-leaf-400" />
             <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{draggingTodo.title}</span>
           </div>
         )}
@@ -594,6 +626,7 @@ export default function TodayPage() {
       {showModal && <TodoModal todo={editTodo} defaultDate={selectedDate} onClose={closeModal} />}
       {showBoard && <MyBoardPanel onClose={() => setShowBoard(false)} />}
       {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
+      {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}
     </div>
     </DndContext>
   );

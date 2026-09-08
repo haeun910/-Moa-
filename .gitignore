@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 dev-dist/
+
+# 환경변수 (Supabase 키 등 - 절대 커밋하지 않음)
+.env
+
+# 로컬 수동 백업 스냅샷 (git 이력으로 대체됨)
+all_planner_v*/
+all_planner_full/
+v1[3-8]/
+
+# Claude Code 로컬 설정
+.claude/

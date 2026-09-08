@@ -65,7 +65,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdrop}
     >
-      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up">
+      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up motion-reduce:animate-none">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -73,6 +73,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
           </h2>
           <button
             onClick={onClose}
+            aria-label="닫기"
             className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <X size={16} />
@@ -90,7 +91,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="할 일을 입력하세요"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-400 transition text-sm"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
               onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
             />
           </div>
@@ -103,7 +104,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 transition text-sm"
+                className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
               />
             </div>
             <div>
@@ -115,7 +116,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
                 type="time"
                 value={startTime}
                 onChange={e => setStartTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-400 transition text-sm"
+                className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
               />
             </div>
           </div>
@@ -128,7 +129,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
                 onClick={() => setCategoryId(null)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   categoryId === null
-                    ? 'bg-sky-500 border-sky-500 text-white'
+                    ? 'bg-leaf-300 border-leaf-300 text-leaf-800'
                     : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
                 }`}
               >
@@ -140,14 +141,14 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
                   onClick={() => setCategoryId(cat.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                     categoryId === cat.id
-                      ? 'border-transparent text-white'
+                      ? 'border-transparent text-gray-800'
                       : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-400'
                   }`}
                   style={categoryId === cat.id ? { backgroundColor: cat.color } : {}}
                 >
                   <span
                     className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: categoryId === cat.id ? 'white' : cat.color }}
+                    style={{ backgroundColor: categoryId === cat.id ? 'rgba(0,0,0,0.35)' : cat.color }}
                   />
                   {cat.name}
                 </button>
@@ -163,7 +164,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
               onChange={e => setNotes(e.target.value)}
               placeholder="메모를 입력하세요 (선택)"
               rows={3}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-400 transition text-sm resize-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm resize-none"
             />
           </div>
 
@@ -187,7 +188,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
                 value={newSubtask}
                 onChange={e => setNewSubtask(e.target.value)}
                 placeholder="하위 항목 추가"
-                className="flex-1 px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-400 transition text-sm"
+                className="flex-1 px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
                 onKeyDown={e => { if (e.key === 'Enter') addSubtask(); }}
               />
               <button
@@ -220,7 +221,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
           <button
             onClick={handleSave}
             disabled={!title.trim()}
-            className="flex-1 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 disabled:opacity-40 text-white transition-colors text-sm font-semibold"
+            className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 transition-colors text-sm font-semibold"
           >
             저장
           </button>

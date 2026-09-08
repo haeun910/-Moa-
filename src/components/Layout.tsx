@@ -30,12 +30,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   onClick={() => setCurrentScreen(screen)}
                   className={`relative flex flex-col items-center justify-center gap-[3px] flex-1 transition-all duration-200 ${
                     active
-                      ? 'text-sky-500'
+                      ? 'text-leaf-500'
                       : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400'
                   }`}
                 >
                   {active && (
-                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2.5px] bg-sky-500 rounded-full" />
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2.5px] bg-leaf-500 rounded-full" />
                   )}
                   <span className={`transition-transform duration-200 ${active ? 'scale-110' : ''}`}>
                     <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />

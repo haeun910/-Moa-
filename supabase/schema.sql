@@ -92,10 +92,10 @@ begin
 
   -- 기본 카테고리
   insert into public.categories (user_id, name, color, is_default, sort_order) values
-    (new.id, '개인',   '#6366f1', true, 0),
-    (new.id, '업무',   '#f59e0b', true, 1),
-    (new.id, '건강',   '#10b981', true, 2),
-    (new.id, '쇼핑',   '#ec4899', true, 3);
+    (new.id, '개인',   '#7B7FE0', true, 0),
+    (new.id, '업무',   '#C99A3A', true, 1),
+    (new.id, '건강',   '#5FB98A', true, 2),
+    (new.id, '쇼핑',   '#DB7FAE', true, 3);
 
   return new;
 end;
