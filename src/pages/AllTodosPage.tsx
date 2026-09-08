@@ -122,7 +122,7 @@ export default function AllTodosPage() {
     const cat = categories.find(c => c.id === activeCatId);
 
     return (
-      <div className="max-w-3xl mx-auto px-4 pt-10 pb-36">
+      <div className="max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 lg:px-8 pt-10 pb-36">
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">저장소</h1>
           <p className="text-sm text-gray-400 mt-0.5">{repoTodoCount}개 · 완료 {completedCount}개</p>
@@ -148,7 +148,7 @@ export default function AllTodosPage() {
           <TodoList todos={filtered} onEdit={openEdit} getActions={getTodoActions} />
         )}
 
-        <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 pb-3 max-w-3xl mx-auto">
+        <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 lg:px-8 pb-3 max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto">
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
             <input ref={quickInputRef} type="text" value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
@@ -182,7 +182,7 @@ export default function AllTodosPage() {
   ].filter(g => g.catTodos.length > 0 || g.cat !== null);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 pt-10 pb-36">
+    <div className="max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 lg:px-8 pt-10 pb-36">
       {/* Header */}
       <div className="mb-5 flex items-end justify-between">
         <div>
@@ -218,32 +218,34 @@ export default function AllTodosPage() {
         </div>
       )}
 
-      {catGroups.map(({ cat, catTodos }) => (
-        <div key={cat?.id ?? '__none__'} className="mb-6">
-          <div className="flex items-center gap-2 mb-2.5 px-1">
-            {cat ? (
-              <>
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
-              </>
-            ) : (
-              <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
-            )}
-            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{catTodos.length}</span>
-          </div>
+      <div className="lg:grid lg:grid-cols-2 lg:gap-x-8">
+        {catGroups.map(({ cat, catTodos }) => (
+          <div key={cat?.id ?? '__none__'} className="mb-6">
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              {cat ? (
+                <>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
+                </>
+              ) : (
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
+              )}
+              <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{catTodos.length}</span>
+            </div>
 
-          {catTodos.length > 0 && (
-            <TodoList todos={catTodos} onEdit={openEdit} getActions={getTodoActions} />
-          )}
-          <CategoryQuickAdd categoryId={cat?.id ?? null} onAdd={addToCategoryGroup} />
-        </div>
-      ))}
+            {catTodos.length > 0 && (
+              <TodoList todos={catTodos} onEdit={openEdit} getActions={getTodoActions} />
+            )}
+            <CategoryQuickAdd categoryId={cat?.id ?? null} onAdd={addToCategoryGroup} />
+          </div>
+        ))}
+      </div>
 
       {catGroups.length === 0 && (
         <CategoryQuickAdd categoryId={null} onAdd={addToCategoryGroup} />
       )}
 
-      <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 pb-3 max-w-3xl mx-auto">
+      <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 lg:px-8 pb-3 max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto">
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
           <input ref={quickInputRef} type="text" value={quickTitle}
             onChange={e => setQuickTitle(e.target.value)}

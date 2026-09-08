@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function TodoItem({ todo, onEdit, actions }: Props) {
-  const { toggleTodo, toggleSubTask, deleteTodo, addSubtaskInline, categories } = useApp();
+  const { toggleTodo, toggleSubTask, deleteTodo, addSubtaskInline, deleteSubtaskInline, categories } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
@@ -143,7 +143,7 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
       {expanded && (
         <div className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/40">
           {todo.subtasks.map(sub => (
-            <div key={sub.id} className={`flex items-center gap-3 px-4 py-2 ${category ? 'pl-[18px]' : ''}`}>
+            <div key={sub.id} className={`flex items-center gap-3 px-4 py-2 group/sub ${category ? 'pl-[18px]' : ''}`}>
               <button
                 onClick={() => toggleSubTask(todo.id, sub.id)}
                 aria-label={sub.completed ? '완료 취소' : '완료 처리'}
@@ -160,6 +160,13 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
               }`}>
                 {sub.title}
               </span>
+              <button
+                onClick={() => deleteSubtaskInline(todo.id, sub.id)}
+                aria-label="하위 항목 삭제"
+                className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover/sub:opacity-100 transition-all"
+              >
+                <Trash2 size={12} />
+              </button>
             </div>
           ))}
 

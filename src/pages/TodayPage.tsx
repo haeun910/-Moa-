@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, GripVertical, CalendarPlus, LayoutDashboard, BarChart3, Clock10, Megaphone } from 'lucide-react';
+import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, GripVertical, CalendarPlus, LayoutDashboard, BarChart3, Clock10, Megaphone, ListTodo } from 'lucide-react';
 import MyBoardPanel from '../components/MyBoardPanel';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
+import GoalModal from '../components/GoalModal';
+import DDayModal from '../components/DDayModal';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -40,6 +42,12 @@ function DraggableRepoItem({ todo }: { todo: Todo }) {
     >
       <GripVertical size={13} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
       <span className="flex-1 text-sm text-left text-gray-700 dark:text-gray-300 truncate">{todo.title}</span>
+      {todo.subtasks.length > 0 && (
+        <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
+          <ListTodo size={9} />
+          {todo.subtasks.filter(s => s.completed).length}/{todo.subtasks.length}
+        </span>
+      )}
     </div>
   );
 }
@@ -62,8 +70,8 @@ function DroppableDatePanel({ children, isOpen }: { children: React.ReactNode; i
 export default function TodayPage() {
   const {
     todos, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
-    monthlyGoals, addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
-    ddays, addDDay, deleteDDay, notices, setCurrentScreen,
+    monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
+    ddays, deleteDDay, notices, setCurrentScreen,
   } = useApp();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -82,10 +90,9 @@ export default function TodayPage() {
   const [quickLoading, setQuickLoading] = useState(false);
   const quickInputRef = useRef<HTMLInputElement>(null);
 
-  const [goalInput, setGoalInput] = useState('');
-  const [ddayTitle, setDdayTitle] = useState('');
-  const [ddayDate, setDdayDate] = useState('');
-  const [showDdayForm, setShowDdayForm] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showDdayModal, setShowDdayModal] = useState(false);
+  const [ddayPopoverDate, setDdayPopoverDate] = useState<string | null>(null);
   const [calView, setCalView] = useState<'month' | 'week'>('month');
   const [weekRef, setWeekRef] = useState(new Date());
   const [weekAddDate, setWeekAddDate] = useState<string | null>(null);
@@ -121,6 +128,7 @@ export default function TodayPage() {
   const repoTodos = todos.filter(t => !t.date);
 
   function handleDayClick(dateStr: string) {
+    setDdayPopoverDate(null);
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
     else { setSelectedDate(dateStr); setPanelOpen(true); }
   }
@@ -137,20 +145,6 @@ export default function TodayPage() {
       setQuickTitle('');
       quickInputRef.current?.focus();
     } finally { setQuickLoading(false); }
-  }
-
-  async function handleAddGoal(e: React.KeyboardEvent) {
-    if (e.key !== 'Enter') return;
-    const title = goalInput.trim();
-    if (!title) return;
-    await addMonthlyGoal(currentMonth, title);
-    setGoalInput('');
-  }
-
-  async function handleAddDDay() {
-    if (!ddayTitle.trim() || !ddayDate) return;
-    await addDDay(ddayTitle.trim(), ddayDate);
-    setDdayTitle(''); setDdayDate(''); setShowDdayForm(false);
   }
 
   function ddayLabel(targetDate: string): string {
@@ -193,12 +187,18 @@ export default function TodayPage() {
                     {format(viewMonth, 'M월')} 목표
                   </span>
                 </div>
-                <span className="text-[10px] text-gray-400">{completedGoals}/{monthGoals.length}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-400">{completedGoals}/{monthGoals.length}</span>
+                  <button onClick={() => setShowGoalModal(true)} aria-label="목표 추가"
+                    className="w-5 h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
+                    <Plus size={11} />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[112px]">
+              <div className="flex-1 space-y-1.5 overflow-y-auto">
                 {monthGoals.length === 0 && (
-                  <p className="text-xs text-gray-300 dark:text-gray-600">목표를 입력해보세요</p>
+                  <p className="text-xs text-gray-300 dark:text-gray-600">목표를 추가해보세요</p>
                 )}
                 {monthGoals.map(g => (
                   <div key={g.id} className="flex items-center gap-2 group">
@@ -219,29 +219,25 @@ export default function TodayPage() {
                   </div>
                 ))}
               </div>
-
-              <input type="text" value={goalInput} onChange={e => setGoalInput(e.target.value)}
-                onKeyDown={handleAddGoal} placeholder="+ 목표 추가 (Enter)"
-                className="text-[11px] text-left text-gray-600 dark:text-gray-400 placeholder-gray-300 dark:placeholder-gray-600 bg-transparent border-t border-gray-100 dark:border-gray-800 pt-1.5 focus:outline-none w-full"
-              />
             </div>
 
             {/* D-Day */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3.5 flex flex-col gap-2 min-h-[168px]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-700 dark:text-gray-300">D-Day</span>
-                <button onClick={() => setShowDdayForm(v => !v)} aria-label="D-Day 추가"
+                <button onClick={() => setShowDdayModal(true)} aria-label="D-Day 추가"
                   className="w-5 h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
                   <Plus size={11} />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-1.5 overflow-y-auto max-h-[92px]">
+              <div className="flex-1 space-y-1.5 overflow-y-auto">
                 {ddays.length === 0 && (
                   <p className="text-xs text-gray-300 dark:text-gray-600">디데이를 추가해보세요</p>
                 )}
                 {ddays.map(d => (
                   <div key={d.id} className="flex items-center gap-2 group">
+                    <Flag size={10} className="flex-shrink-0 text-leaf-500" />
                     <span className={`flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[44px] text-center ${
                       differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0
                         ? 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400'
@@ -255,20 +251,6 @@ export default function TodayPage() {
                   </div>
                 ))}
               </div>
-
-              {showDdayForm && (
-                <div className="border-t border-gray-100 dark:border-gray-800 pt-1.5 flex flex-col gap-1">
-                  <input type="text" value={ddayTitle} onChange={e => setDdayTitle(e.target.value)}
-                    placeholder="이름"
-                    className="text-[11px] text-left bg-transparent text-gray-700 dark:text-gray-300 placeholder-gray-300 focus:outline-none w-full" />
-                  <div className="flex items-center gap-1">
-                    <input type="date" value={ddayDate} onChange={e => setDdayDate(e.target.value)}
-                      className="flex-1 text-[11px] bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none" />
-                    <button onClick={handleAddDDay}
-                      className="text-[10px] px-2 py-0.5 rounded-md bg-leaf-300 text-leaf-800 font-medium">추가</button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -346,7 +328,7 @@ export default function TodayPage() {
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0 max-h-[420px]'
+              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0'
             }`}>
               <div className="flex-shrink-0 grid grid-cols-7 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
@@ -362,13 +344,25 @@ export default function TodayPage() {
                   const isSelected = dateStr === selectedDate && panelOpen;
                   const inMonth = isSameMonth(day, viewMonth);
                   const dayTodos = todos.filter(t => t.date === dateStr);
+                  const dayDdays = ddays.filter(d => d.targetDate === dateStr);
                   const dow = day.getDay();
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      className={`flex flex-col items-start p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left overflow-hidden ${
+                      className={`relative flex flex-col items-start p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
                         inMonth ? '' : 'opacity-25'
                       } ${isSelected ? 'bg-leaf-50 dark:bg-leaf-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
                     >
+                      {dayDdays.length > 0 && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label="이 날의 디데이 보기"
+                          onClick={e => { e.stopPropagation(); setDdayPopoverDate(v => v === dateStr ? null : dateStr); }}
+                          className="absolute top-1 right-1 w-4 h-4 rounded-full bg-leaf-300 text-leaf-800 flex items-center justify-center z-10 shadow-sm"
+                        >
+                          <Flag size={9} strokeWidth={2.5} />
+                        </span>
+                      )}
                       <span className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-md text-[11px] font-bold mb-0.5 ${
                         isSelected ? 'bg-leaf-300 text-leaf-800'
                         : isToday ? 'bg-leaf-300 text-leaf-800'
@@ -385,6 +379,21 @@ export default function TodayPage() {
                         ))}
                         {dayTodos.length > 2 && <div className="text-[9px] text-gray-400 pl-0.5">+{dayTodos.length - 2}</div>}
                       </div>
+                      {ddayPopoverDate === dateStr && (
+                        <div
+                          role="presentation"
+                          onClick={e => e.stopPropagation()}
+                          className="absolute top-6 right-0 z-30 w-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-2 space-y-1"
+                        >
+                          {dayDdays.map(d => (
+                            <div key={d.id} className="flex items-center gap-1.5">
+                              <Flag size={10} className="flex-shrink-0 text-leaf-500" />
+                              <span className="flex-1 text-[11px] font-semibold text-gray-700 dark:text-gray-200 truncate">{d.title}</span>
+                              <span className="text-[10px] font-bold text-leaf-600 dark:text-leaf-400 flex-shrink-0">{ddayLabel(d.targetDate)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </button>
                   );
                 })}
@@ -393,7 +402,7 @@ export default function TodayPage() {
           ) : (
             /* ── 주간 뷰 (인라인) ── */
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0 max-h-[420px]'
+              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0'
             }`}>
               <div className="flex-1 overflow-auto p-2">
                 <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '220px' }}>
@@ -510,7 +519,7 @@ export default function TodayPage() {
 
       {/* ── 오른쪽 패널 (데스크톱) ── */}
       <div className={`hidden lg:flex flex-col border-l border-gray-100 dark:border-gray-800 overflow-hidden transition-all duration-300 ease-in-out relative ${
-        panelOpen ? 'w-[440px] xl:w-[500px] opacity-100' : 'w-0 opacity-0'
+        panelOpen ? 'w-[520px] xl:w-[640px] opacity-100' : 'w-0 opacity-0'
       }`}>
         {panelOpen && (
           <>
@@ -627,6 +636,8 @@ export default function TodayPage() {
       {showBoard && <MyBoardPanel onClose={() => setShowBoard(false)} />}
       {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
       {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}
+      {showGoalModal && <GoalModal month={currentMonth} onClose={() => setShowGoalModal(false)} />}
+      {showDdayModal && <DDayModal onClose={() => setShowDdayModal(false)} />}
     </div>
     </DndContext>
   );

@@ -69,6 +69,7 @@ interface AppContextType {
   toggleTodo: (id: string) => Promise<void>;
   toggleSubTask: (todoId: string, subTaskId: string) => Promise<void>;
   addSubtaskInline: (todoId: string, title: string) => Promise<void>;
+  deleteSubtaskInline: (todoId: string, subTaskId: string) => Promise<void>;
   reorderTodos: (orderedIds: string[]) => Promise<void>;
   addCategory: (name: string, color: string) => Promise<void>;
   updateCategory: (id: string, updates: { name?: string; color?: string }) => Promise<void>;
@@ -266,6 +267,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ));
   }, []);
 
+  const deleteSubtaskInline = useCallback(async (todoId: string, subTaskId: string) => {
+    setTodos(prev => prev.map(t =>
+      t.id === todoId ? { ...t, subtasks: t.subtasks.filter(s => s.id !== subTaskId) } : t
+    ));
+    await db.deleteSubtask(subTaskId);
+  }, []);
+
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
     setTodos(prev => {
       const map = new Map(prev.map(t => [t.id, t]));
@@ -341,7 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addDDay = useCallback(async (title: string, targetDate: string) => {
     if (!user) return;
     const row = await db.createDDay(user.id, title, targetDate);
-    setDDays(prev => [...prev, toDDay(row)]);
+    setDDays(prev => [...prev, toDDay(row)].sort((a, b) => a.targetDate.localeCompare(b.targetDate)));
   }, [user]);
 
   const deleteDDay = useCallback(async (id: string) => {
@@ -379,7 +387,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       todos, categories, notes, settings, monthlyGoals, ddays, notices, isAdmin, currentScreen, selectedDate, dataLoading,
-      addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, addSubtaskInline, reorderTodos,
+      addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, addSubtaskInline, deleteSubtaskInline, reorderTodos,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addNote, updateNote, deleteNote,
       updateSettings,

@@ -9,7 +9,7 @@ export default function CategoryFilter({ activeCatId, onChange }: Props) {
   const { categories } = useApp();
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+    <div className="flex flex-wrap gap-2 pb-1">
       <button
         onClick={() => onChange(null)}
         className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
