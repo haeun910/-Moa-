@@ -328,7 +328,7 @@ export default function TodayPage() {
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0'
+              panelOpen ? 'flex-shrink-0 h-[320px] md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 min-h-0'
             }`}>
               <div className="flex-shrink-0 grid grid-cols-7 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
@@ -402,7 +402,7 @@ export default function TodayPage() {
           ) : (
             /* ── 주간 뷰 (인라인) ── */
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'flex-shrink-0 h-[320px] lg:h-[420px]' : 'flex-1 min-h-0'
+              panelOpen ? 'flex-shrink-0 h-[320px] md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 min-h-0'
             }`}>
               <div className="flex-1 overflow-auto p-2">
                 <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '220px' }}>
@@ -489,9 +489,9 @@ export default function TodayPage() {
             </div>
           )}
 
-          {/* ── 저장소 (패널 열릴 때만 표시, 남은 공간 채움) ── */}
+          {/* ── 저장소 (패널 열릴 때만 표시. 태블릿 이상에서는 달력이 먼저 공간을 채우고 남는 만큼만 사용) ── */}
           {panelOpen && (
-            <div className="flex-1 min-h-0 mt-3 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 md:flex-none md:max-h-[200px] mt-3 flex flex-col overflow-hidden">
               <div className="flex-shrink-0 flex items-center gap-2 mb-1 px-1">
                 <CalendarPlus size={12} className="text-leaf-500" />
                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">저장소</span>
