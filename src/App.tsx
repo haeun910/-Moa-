@@ -3,6 +3,7 @@ import { AppProvider } from './context/AppContext';
 import { isSupabaseConfigured } from './lib/supabase';
 import Layout from './components/Layout';
 import InstallPrompt from './components/InstallPrompt';
+import UpdatePrompt from './components/UpdatePrompt';
 import TodayPage from './pages/TodayPage';
 import CalendarPage from './pages/CalendarPage';
 import AllTodosPage from './pages/AllTodosPage';
@@ -84,6 +85,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Root />
+      <UpdatePrompt />
     </AuthProvider>
   );
 }
