@@ -8,6 +8,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.2.1',
+    date: '2026-09-09',
+    changes: [
+      '저장소 화면을 2단으로 볼 때 할 일 제목이 줄바꿈되면서 체크박스·아이콘 위치가 어긋나던 문제 수정',
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-09-09',
     changes: [

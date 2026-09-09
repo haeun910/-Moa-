@@ -101,3 +101,16 @@ export interface DbSettings {
   notifications: boolean;
   updated_at: string;
 }
+
+// 관리자 통계 (get_admin_stats RPC 반환값) - 개인정보 없이 집계된 숫자만
+export interface AdminStats {
+  totalUsers: number;
+  newUsersToday: number;
+  newUsersThisWeek: number;
+  activeUsers7d: number;
+  activeUsers30d: number;
+  totalTodos: number;
+  completedTodos: number;
+  totalNotes: number;
+  totalCategories: number;
+}
