@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, GripVertical, CalendarPlus, LayoutDashboard, BarChart3, Clock10, Megaphone, ListTodo } from 'lucide-react';
+import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, LayoutDashboard, BarChart3, Clock10, Megaphone } from 'lucide-react';
 import MyBoardPanel from '../components/MyBoardPanel';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
@@ -11,65 +11,16 @@ import {
   differenceInCalendarDays, addWeeks, subWeeks, isToday as dateFnsIsToday,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import {
-  DndContext, DragOverlay, useDraggable, useDroppable,
-  PointerSensor, useSensor, useSensors,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useApp } from '../context/AppContext';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
-import CategoryFilter from '../components/CategoryFilter';
 import type { Todo } from '../types';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
-// ── 드래그 가능한 저장소 아이템 (전체 영역 드래그) ──
-function DraggableRepoItem({ todo }: { todo: Todo }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: todo.id });
-  const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)` } : undefined;
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      className={`flex items-center gap-2 px-2 py-2 rounded-lg transition-all cursor-grab active:cursor-grabbing touch-none select-none text-left ${
-        isDragging
-          ? 'opacity-40 bg-leaf-50 dark:bg-leaf-900/20'
-          : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-      }`}
-    >
-      <GripVertical size={13} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
-      <span className="flex-1 text-sm text-left text-gray-700 dark:text-gray-300 truncate">{todo.title}</span>
-      {todo.subtasks.length > 0 && (
-        <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">
-          <ListTodo size={9} />
-          {todo.subtasks.filter(s => s.completed).length}/{todo.subtasks.length}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ── 드롭 가능한 패널 영역 ──
-function DroppableDatePanel({ children, isOpen }: { children: React.ReactNode; isOpen: boolean }) {
-  const { setNodeRef, isOver } = useDroppable({ id: 'date-panel' });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex-1 overflow-y-auto px-5 pt-3 pb-28 transition-colors rounded-xl ${
-        isOver && isOpen ? 'bg-leaf-50 dark:bg-leaf-900/10' : ''
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
-
 export default function TodayPage() {
   const {
-    todos, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
+    todos, categories, addTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
     ddays, deleteDDay, notices, setCurrentScreen,
   } = useApp();
@@ -82,7 +33,6 @@ export default function TodayPage() {
   const monthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const completedGoals = monthGoals.filter(g => g.completed).length;
 
-  const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -111,10 +61,6 @@ export default function TodayPage() {
     }
   }
 
-  // DnD
-  const [draggingTodo, setDraggingTodo] = useState<Todo | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
   const days = eachDayOfInterval({
     start: startOfWeek(startOfMonth(viewMonth)),
     end: endOfWeek(endOfMonth(viewMonth)),
@@ -122,10 +68,12 @@ export default function TodayPage() {
   const weekCount = Math.ceil(days.length / 7);
 
   const selectedTodos = todos.filter(t => t.date === selectedDate);
-  const filtered = activeCatId ? selectedTodos.filter(t => t.categoryId === activeCatId) : selectedTodos;
 
-  // 저장소 = 날짜 없는 할 일
-  const repoTodos = todos.filter(t => !t.date);
+  // 선택한 날의 할 일을 카테고리별로 묶어서 목록 사이에 카테고리 이름이 끼어들도록 함
+  const dayGroups = [
+    ...categories.map(cat => ({ cat, groupTodos: selectedTodos.filter(t => t.categoryId === cat.id) })),
+    { cat: null, groupTodos: selectedTodos.filter(t => !t.categoryId) },
+  ].filter(g => g.groupTodos.length > 0);
 
   function handleDayClick(dateStr: string) {
     setDdayPopoverDate(null);
@@ -141,7 +89,7 @@ export default function TodayPage() {
     if (!title || quickLoading) return;
     setQuickLoading(true);
     try {
-      await addTodo({ title, completed: false, categoryId: activeCatId, date: selectedDate, startTime: null, subtasks: [], notes: '' });
+      await addTodo({ title, completed: false, categoryId: null, date: selectedDate, startTime: null, subtasks: [], notes: '' });
       setQuickTitle('');
       quickInputRef.current?.focus();
     } finally { setQuickLoading(false); }
@@ -154,20 +102,39 @@ export default function TodayPage() {
     return `D+${Math.abs(diff)}`;
   }
 
-  function handleDragStart(event: DragStartEvent) {
-    const todo = todos.find(t => t.id === event.active.id);
-    setDraggingTodo(todo ?? null);
-  }
-
-  async function handleDragEnd(event: DragEndEvent) {
-    setDraggingTodo(null);
-    if (event.over?.id === 'date-panel' && event.active.id && panelOpen) {
-      await updateTodo(event.active.id as string, { date: selectedDate });
+  // 선택한 날의 할 일을 카테고리별로 나눠서 보여줌 (카테고리 이름이 목록 사이에 끼워짐)
+  function renderDayGroups() {
+    if (selectedTodos.length === 0) {
+      return (
+        <div className="text-center pt-16">
+          <p className="text-sm text-gray-400">이 날의 할 일이 없어요</p>
+          <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">아래에서 추가해보세요</p>
+        </div>
+      );
     }
+    return (
+      <div className="space-y-4">
+        {dayGroups.map(({ cat, groupTodos }) => (
+          <div key={cat?.id ?? '__none__'}>
+            <div className="flex items-center gap-2 mb-1.5 px-1">
+              {cat ? (
+                <>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
+                </>
+              ) : (
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
+              )}
+              <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{groupTodos.length}</span>
+            </div>
+            <TodoList todos={groupTodos} onEdit={openEdit} />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
     <div className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] flex flex-col lg:flex-row">
 
       {/* ── 달력 + 저장소 영역 (모바일은 화면에 억지로 끼워 맞추지 않고 자연스럽게 스크롤) ── */}
@@ -495,31 +462,6 @@ export default function TodayPage() {
             </div>
           )}
 
-          {/* ── 저장소 (패널 열릴 때만 표시. 태블릿 이상에서는 달력이 먼저 공간을 채우고 남는 만큼만 사용) ── */}
-          {panelOpen && (
-            <div className="flex-1 min-h-0 md:flex-none md:max-h-[200px] mt-3 flex flex-col overflow-hidden">
-              <div className="flex-shrink-0 flex items-center gap-2 mb-1 px-1">
-                <CalendarPlus size={12} className="text-leaf-500" />
-                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">저장소</span>
-                {repoTodos.length > 0 && (
-                  <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{repoTodos.length}</span>
-                )}
-                <span className="text-[10px] text-gray-300 dark:text-gray-600">드래그해서 날짜에 추가</span>
-              </div>
-              {repoTodos.length > 0 ? (
-                <div className="flex-1 overflow-y-auto">
-                  {repoTodos.map(todo => (
-                    <DraggableRepoItem key={todo.id} todo={todo} />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center h-full text-xs text-gray-300 dark:text-gray-600 px-2">
-                  저장소가 비어 있어요
-                </div>
-              )}
-            </div>
-          )}
-
         </div>
       </div>
 
@@ -547,18 +489,9 @@ export default function TodayPage() {
                 </button>
               </div>
             </div>
-            <div className="flex-shrink-0 px-5 pt-3">
-              <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
+            <div className="flex-1 overflow-y-auto px-5 pt-3 pb-28">
+              {renderDayGroups()}
             </div>
-            <DroppableDatePanel isOpen={panelOpen}>
-              {filtered.length === 0
-                ? <div className="text-center pt-16">
-                    <p className="text-sm text-gray-400">이 날의 할 일이 없어요</p>
-                    <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">아래에서 추가하거나 저장소에서 드래그하세요</p>
-                  </div>
-                : <TodoList todos={filtered} onEdit={openEdit} />
-              }
-            </DroppableDatePanel>
             <div className="absolute bottom-16 left-0 right-0 px-5 pb-2">
               <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
                 <input ref={quickInputRef} type="text" value={quickTitle}
@@ -601,14 +534,8 @@ export default function TodayPage() {
             </button>
           </div>
         </div>
-        <div className="px-4 flex-shrink-0">
-          <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
-        </div>
         <div className="flex-1 overflow-y-auto px-4 pt-2 pb-20">
-          {filtered.length === 0
-            ? <p className="text-center text-sm text-gray-400 pt-8">이 날의 할 일이 없어요</p>
-            : <TodoList todos={filtered} onEdit={openEdit} />
-          }
+          {renderDayGroups()}
         </div>
         <div className="absolute bottom-16 left-0 right-0 px-4 pb-2">
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
@@ -628,16 +555,6 @@ export default function TodayPage() {
         </div>
       </div>
 
-      {/* DragOverlay */}
-      <DragOverlay>
-        {draggingTodo && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-leaf-300 bg-white dark:bg-gray-900 shadow-xl opacity-90">
-            <GripVertical size={14} className="text-leaf-400" />
-            <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{draggingTodo.title}</span>
-          </div>
-        )}
-      </DragOverlay>
-
       {showModal && <TodoModal todo={editTodo} defaultDate={selectedDate} onClose={closeModal} />}
       {showBoard && <MyBoardPanel onClose={() => setShowBoard(false)} />}
       {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
@@ -645,6 +562,5 @@ export default function TodayPage() {
       {showGoalModal && <GoalModal month={currentMonth} onClose={() => setShowGoalModal(false)} />}
       {showDdayModal && <DDayModal onClose={() => setShowDdayModal(false)} />}
     </div>
-    </DndContext>
   );
 }
