@@ -7,6 +7,8 @@ import { usePwaInstall } from '../hooks/usePwaInstall';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
+import ChangelogModal from '../components/ChangelogModal';
+import { APP_VERSION } from '../data/changelog';
 import type { Settings } from '../types';
 
 const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
@@ -22,6 +24,7 @@ export default function SettingsPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
   async function handleSignOut() { setSigningOut(true); await signOut(); }
@@ -270,19 +273,24 @@ export default function SettingsPage() {
 
         {/* App info */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-          <div className="px-4 py-3.5 flex items-center gap-3">
+          <button
+            onClick={() => setShowChangelog(true)}
+            className="w-full px-4 py-3.5 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
             <div className="w-8 h-8 rounded-lg bg-leaf-300 flex items-center justify-center flex-shrink-0">
               <Info size={14} className="text-leaf-800" />
             </div>
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1">모아(Moa)</span>
-            <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">v1.0.0</span>
-          </div>
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex-1 text-left">모아(Moa)</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">v{APP_VERSION}</span>
+            <ChevronRight size={16} className="text-gray-400" />
+          </button>
         </section>
       </div>
 
       {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
       {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
       {showInstallInstructions && <InstallInstructionsModal onClose={() => setShowInstallInstructions(false)} />}
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
     </div>
   );
 }
