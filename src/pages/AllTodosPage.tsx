@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
 import CategoryFilter from '../components/CategoryFilter';
+import SubtaskMoveModal from '../components/SubtaskMoveModal';
 import type { Todo, Category } from '../types';
 
 function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; onAdd: (title: string, catId: string | null) => Promise<void> }) {
@@ -42,12 +43,16 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
 }
 
 export default function AllTodosPage() {
-  const { todos, categories, addTodo, updateTodo } = useApp();
+  const { todos: allTodos, categories, addTodo, updateTodo } = useApp();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // 저장소 = 날짜 없이 보관 중인 할 일만 (날짜가 정해지면 저장소에서는 사라져야 함)
+  const todos = allTodos.filter(t => !t.date);
 
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
+  const [subtaskMoveTodo, setSubtaskMoveTodo] = useState<Todo | undefined>();
   const [quickTitle, setQuickTitle] = useState('');
   const [quickLoading, setQuickLoading] = useState(false);
   const quickInputRef = useRef<HTMLInputElement>(null);
@@ -74,40 +79,25 @@ export default function AllTodosPage() {
     await updateTodo(todo.id, { date: todayStr });
   }
 
-  async function sendSubtasksToToday(todo: Todo) {
-    if (todo.subtasks.length === 0) return;
-    await Promise.all(
-      todo.subtasks.map(sub => addTodo({
-        title: sub.title,
-        completed: sub.completed,
-        categoryId: todo.categoryId,
-        date: todayStr,
-        startTime: null,
-        subtasks: [],
-        notes: '',
-      }))
-    );
-  }
-
   function getTodoActions(todo: Todo) {
     return (
       <>
         <button
           onClick={e => { e.stopPropagation(); sendToToday(todo); }}
           className="flex items-center gap-1 text-[10px] font-semibold text-leaf-600 hover:text-leaf-800 dark:text-leaf-400 dark:hover:text-leaf-200 bg-leaf-50 hover:bg-leaf-300 dark:bg-leaf-900/30 dark:hover:bg-leaf-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-          title="오늘 날짜로 이동"
+          title="이 할 일(하위 항목 포함) 전체를 오늘 날짜로 이동"
         >
           <CalendarCheck size={11} />
           오늘로
         </button>
         {todo.subtasks.length > 0 && (
           <button
-            onClick={e => { e.stopPropagation(); sendSubtasksToToday(todo); }}
+            onClick={e => { e.stopPropagation(); setSubtaskMoveTodo(todo); }}
             className="flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-white bg-violet-50 hover:bg-violet-500 dark:bg-violet-900/30 dark:hover:bg-violet-500 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-            title="하위 항목만 오늘로 이동"
+            title="하위 항목 중 원하는 것만 골라서 오늘로 이동"
           >
             <ListTodo size={11} />
-            하위만
+            하위 선택
           </button>
         )}
       </>
@@ -166,6 +156,7 @@ export default function AllTodosPage() {
           </div>
         </div>
         {showModal && <TodoModal todo={editTodo} onClose={closeModal} />}
+        {subtaskMoveTodo && <SubtaskMoveModal todo={subtaskMoveTodo} onClose={() => setSubtaskMoveTodo(undefined)} />}
       </div>
     );
   }
@@ -264,6 +255,7 @@ export default function AllTodosPage() {
       </div>
 
       {showModal && <TodoModal todo={editTodo} onClose={closeModal} />}
+      {subtaskMoveTodo && <SubtaskMoveModal todo={subtaskMoveTodo} onClose={() => setSubtaskMoveTodo(undefined)} />}
     </div>
   );
 }

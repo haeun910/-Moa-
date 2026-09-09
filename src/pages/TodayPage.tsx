@@ -168,53 +168,56 @@ export default function TodayPage() {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-    <div className="h-screen pb-[62px] overflow-hidden flex flex-col lg:flex-row">
+    <div className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] flex flex-col lg:flex-row">
 
-      {/* ── 달력 + 저장소 영역 ── */}
-      <div className={`flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${panelOpen ? 'h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
+      {/* ── 달력 + 저장소 영역 (모바일은 화면에 억지로 끼워 맞추지 않고 자연스럽게 스크롤) ── */}
+      <div className={`flex flex-col md:overflow-hidden transition-all duration-300 ease-in-out ${panelOpen ? 'md:h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
 
-        <div className="flex-1 flex flex-col px-5 pt-4 pb-4 min-h-0">
+        <div className="flex-1 flex flex-col px-4 sm:px-5 pt-4 pb-4 md:min-h-0">
 
-          {/* ── 목표 + D-Day ── */}
-          <div className="flex-shrink-0 grid grid-cols-2 gap-3 mb-3">
+          {/* ── 목표 + D-Day (모바일은 세로로 쌓아서 카드 하나당 폭을 넉넉하게) ── */}
+          <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
             {/* 이번달 목표 */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3.5 flex flex-col gap-2 min-h-[168px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[168px]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Flag size={13} className="text-leaf-500" />
-                  <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                  <Flag size={14} className="text-leaf-500 md:w-[13px] md:h-[13px]" />
+                  <span className="text-sm md:text-xs font-bold text-gray-700 dark:text-gray-300">
                     {format(viewMonth, 'M월')} 목표
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-400">{completedGoals}/{monthGoals.length}</span>
+                  <span className="text-xs md:text-[10px] text-gray-400">{completedGoals}/{monthGoals.length}</span>
                   <button onClick={() => setShowGoalModal(true)} aria-label="목표 추가"
-                    className="w-5 h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
-                    <Plus size={11} />
+                    className="w-7 h-7 md:w-5 md:h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
+                    <Plus size={14} className="md:hidden" />
+                    <Plus size={11} className="hidden md:block" />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 space-y-1.5 overflow-y-auto">
+              <div className="flex-1 space-y-2 md:space-y-1.5 overflow-y-auto">
                 {monthGoals.length === 0 && (
-                  <p className="text-xs text-gray-300 dark:text-gray-600">목표를 추가해보세요</p>
+                  <p className="text-sm md:text-xs text-gray-300 dark:text-gray-600">목표를 추가해보세요</p>
                 )}
                 {monthGoals.map(g => (
                   <div key={g.id} className="flex items-center gap-2 group">
                     <button onClick={() => toggleMonthlyGoal(g.id)}
                       aria-label={g.completed ? '완료 취소' : '완료 처리'}
-                      className={`flex-shrink-0 w-[18px] h-[18px] rounded border flex items-center justify-center transition-colors ${
+                      className={`flex-shrink-0 w-5 h-5 md:w-[18px] md:h-[18px] rounded border flex items-center justify-center transition-colors ${
                         g.completed ? 'bg-leaf-300 border-leaf-300' : 'border-gray-300 dark:border-gray-600'
                       }`}>
-                      {g.completed && <Check size={10} className="text-leaf-800" strokeWidth={3} />}
+                      {g.completed && <Check size={11} className="text-leaf-800 md:hidden" strokeWidth={3} />}
+                      {g.completed && <Check size={10} className="text-leaf-800 hidden md:block" strokeWidth={3} />}
                     </button>
-                    <span className={`flex-1 text-xs leading-tight ${g.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <span className={`flex-1 text-sm md:text-xs leading-tight ${g.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
                       {g.title}
                     </span>
                     <button onClick={() => deleteMonthlyGoal(g.id)} aria-label="목표 삭제"
-                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                      <X size={12} />
+                      className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
+                      <X size={14} className="md:hidden" />
+                      <X size={12} className="hidden md:block" />
                     </button>
                   </div>
                 ))}
@@ -222,31 +225,34 @@ export default function TodayPage() {
             </div>
 
             {/* D-Day */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-3.5 flex flex-col gap-2 min-h-[168px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[168px]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">D-Day</span>
+                <span className="text-sm md:text-xs font-bold text-gray-700 dark:text-gray-300">D-Day</span>
                 <button onClick={() => setShowDdayModal(true)} aria-label="D-Day 추가"
-                  className="w-5 h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
-                  <Plus size={11} />
+                  className="w-7 h-7 md:w-5 md:h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
+                  <Plus size={14} className="md:hidden" />
+                  <Plus size={11} className="hidden md:block" />
                 </button>
               </div>
 
-              <div className="flex-1 space-y-1.5 overflow-y-auto">
+              <div className="flex-1 space-y-2 md:space-y-1.5 overflow-y-auto">
                 {ddays.length === 0 && (
-                  <p className="text-xs text-gray-300 dark:text-gray-600">디데이를 추가해보세요</p>
+                  <p className="text-sm md:text-xs text-gray-300 dark:text-gray-600">디데이를 추가해보세요</p>
                 )}
                 {ddays.map(d => (
                   <div key={d.id} className="flex items-center gap-2 group">
-                    <Flag size={10} className="flex-shrink-0 text-leaf-500" />
-                    <span className={`flex-shrink-0 text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[44px] text-center ${
+                    <Flag size={11} className="flex-shrink-0 text-leaf-500 md:hidden" />
+                    <Flag size={10} className="flex-shrink-0 text-leaf-500 hidden md:block" />
+                    <span className={`flex-shrink-0 text-xs md:text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[48px] md:min-w-[44px] text-center ${
                       differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0
                         ? 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
                     }`}>{ddayLabel(d.targetDate)}</span>
-                    <span className="flex-1 text-xs text-gray-700 dark:text-gray-300 truncate">{d.title}</span>
+                    <span className="flex-1 text-sm md:text-xs text-gray-700 dark:text-gray-300 truncate">{d.title}</span>
                     <button onClick={() => deleteDDay(d.id)} aria-label="D-Day 삭제"
-                      className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
-                      <Trash2 size={12} />
+                      className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
+                      <Trash2 size={14} className="md:hidden" />
+                      <Trash2 size={12} className="hidden md:block" />
                     </button>
                   </div>
                 ))}
@@ -328,11 +334,11 @@ export default function TodayPage() {
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'flex-shrink-0 h-[320px] md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 min-h-0'
+              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 md:min-h-0'
             }`}>
               <div className="flex-shrink-0 grid grid-cols-7 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
-                  <div key={d} className={`py-1.5 text-center text-[11px] font-semibold ${
+                  <div key={d} className={`py-1.5 text-center text-xs md:text-[11px] font-semibold ${
                     i === 0 ? 'text-red-400' : i === 6 ? 'text-leaf-400' : 'text-gray-400'
                   }`}>{d}</div>
                 ))}
@@ -348,7 +354,7 @@ export default function TodayPage() {
                   const dow = day.getDay();
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      className={`relative flex flex-col items-start p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
+                      className={`relative flex flex-col items-start min-h-[60px] md:min-h-0 p-2 md:p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
                         inMonth ? '' : 'opacity-25'
                       } ${isSelected ? 'bg-leaf-50 dark:bg-leaf-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
                     >
@@ -363,7 +369,7 @@ export default function TodayPage() {
                           <Flag size={9} strokeWidth={2.5} />
                         </span>
                       )}
-                      <span className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-md text-[11px] font-bold mb-0.5 ${
+                      <span className={`flex-shrink-0 w-6 h-6 md:w-5 md:h-5 flex items-center justify-center rounded-md text-xs md:text-[11px] font-bold mb-0.5 ${
                         isSelected ? 'bg-leaf-300 text-leaf-800'
                         : isToday ? 'bg-leaf-300 text-leaf-800'
                         : dow === 0 ? 'text-red-500 font-bold' : dow === 6 ? 'text-leaf-600 font-bold' : 'text-gray-800 dark:text-gray-100'
@@ -372,12 +378,12 @@ export default function TodayPage() {
                       </span>
                       <div className="w-full space-y-0.5 overflow-hidden">
                         {dayTodos.slice(0, 2).map(t => (
-                          <div key={t.id} className={`w-full text-[9px] leading-tight px-1 py-0.5 rounded truncate ${
+                          <div key={t.id} className={`w-full text-[10px] md:text-[9px] leading-tight px-1 py-0.5 rounded truncate ${
                             t.completed ? 'bg-gray-100 dark:bg-gray-800 text-gray-400'
                             : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-700 dark:text-leaf-300'
                           }`}>{t.title}</div>
                         ))}
-                        {dayTodos.length > 2 && <div className="text-[9px] text-gray-400 pl-0.5">+{dayTodos.length - 2}</div>}
+                        {dayTodos.length > 2 && <div className="text-[10px] md:text-[9px] text-gray-400 pl-0.5">+{dayTodos.length - 2}</div>}
                       </div>
                       {ddayPopoverDate === dateStr && (
                         <div
@@ -402,10 +408,10 @@ export default function TodayPage() {
           ) : (
             /* ── 주간 뷰 (인라인) ── */
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'flex-shrink-0 h-[320px] md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 min-h-0'
+              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 md:min-h-0'
             }`}>
               <div className="flex-1 overflow-auto p-2">
-                <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '220px' }}>
+                <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '260px' }}>
                   {eachDayOfInterval({
                     start: startOfWeek(weekRef, { weekStartsOn: 0 }),
                     end: endOfWeek(weekRef, { weekStartsOn: 0 }),

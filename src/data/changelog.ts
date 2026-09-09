@@ -18,7 +18,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: '1.0.0',
-    date: '2026-01-01',
+    date: '2026-06-28',
     changes: [
       '할 일, 일정, 메모, 목표 관리 기능 출시',
     ],
