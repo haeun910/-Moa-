@@ -1,11 +1,42 @@
+import { useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw, X } from 'lucide-react';
 
+// 태블릿 등 설치된 PWA는 완전히 새로고침되지 않고 백그라운드에서 그대로 재개되는 경우가
+// 많아서, 새 서비스워커 감지가 일어날 기회(탐색/새로고침)가 거의 없다. 그래서 주기적으로 +
+// 화면이 다시 보일 때마다 직접 업데이트 여부를 확인해준다.
+const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1시간
+
 export default function UpdatePrompt() {
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    onRegisteredSW(_url, registration) {
+      registrationRef.current = registration ?? null;
+    },
+  });
+
+  useEffect(() => {
+    function checkForUpdate() {
+      registrationRef.current?.update().catch(() => {});
+    }
+
+    const intervalId = window.setInterval(checkForUpdate, CHECK_INTERVAL_MS);
+
+    function handleVisible() {
+      if (document.visibilityState === 'visible') checkForUpdate();
+    }
+    document.addEventListener('visibilitychange', handleVisible);
+    window.addEventListener('focus', checkForUpdate);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.removeEventListener('focus', checkForUpdate);
+    };
+  }, []);
 
   if (!needRefresh) return null;
 
