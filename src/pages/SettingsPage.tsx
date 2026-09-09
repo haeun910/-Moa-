@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
@@ -8,6 +8,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 import DeleteAccountModal from '../components/DeleteAccountModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
 import ChangelogModal from '../components/ChangelogModal';
+import AdminStatsModal from '../components/AdminStatsModal';
 import { APP_VERSION } from '../data/changelog';
 import type { Settings } from '../types';
 
@@ -18,13 +19,14 @@ const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, todos, notes, monthlyGoals, ddays, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, todos, notes, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showAdminStats, setShowAdminStats] = useState(false);
   const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
   async function handleSignOut() { setSigningOut(true); await signOut(); }
@@ -243,6 +245,27 @@ export default function SettingsPage() {
           </button>
         </section>
 
+        {/* 관리자 전용 */}
+        {isAdmin && (
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowAdminStats(true)}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                  <BarChart3 size={15} className="text-leaf-600" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white">관리자 통계</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">가입자 · 활성 사용자 등 (관리자만 보여요)</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-gray-400" />
+            </button>
+          </section>
+        )}
+
         {/* 앱 다운로드 */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
           {isInstalled ? (
@@ -291,6 +314,7 @@ export default function SettingsPage() {
       {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
       {showInstallInstructions && <InstallInstructionsModal onClose={() => setShowInstallInstructions(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
+      {showAdminStats && <AdminStatsModal onClose={() => setShowAdminStats(false)} />}
     </div>
   );
 }

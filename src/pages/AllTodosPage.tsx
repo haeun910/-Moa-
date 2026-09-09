@@ -209,7 +209,7 @@ export default function AllTodosPage() {
         </div>
       )}
 
-      <div className="lg:grid lg:grid-cols-2 lg:gap-x-8">
+      <div className="xl:grid xl:grid-cols-2 xl:gap-x-8">
         {catGroups.map(({ cat, catTodos }) => (
           <div key={cat?.id ?? '__none__'} className="mb-6">
             <div className="flex items-center gap-2 mb-2.5 px-1">

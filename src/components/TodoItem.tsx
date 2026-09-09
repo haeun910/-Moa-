@@ -53,7 +53,7 @@ export default function TodoItem({ todo, onEdit, actions }: Props) {
         />
       )}
 
-      <div className={`flex items-center gap-3 px-4 py-3.5 ${category ? 'pl-[18px]' : ''}`}>
+      <div className={`flex items-start gap-3 px-4 py-3.5 ${category ? 'pl-[18px]' : ''}`}>
         {/* Checkbox */}
         <button
           onClick={() => toggleTodo(todo.id)}

@@ -1,5 +1,14 @@
 import { supabase } from './supabase';
-import type { DbCategory, DbTodo, DbSubtask, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbNotice } from './supabase';
+import type { DbCategory, DbTodo, DbSubtask, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbNotice, AdminStats } from './supabase';
+
+// ────────────────────────────────────────────────
+// 관리자 통계 (관리자 계정만 실제 값을 받을 수 있음 - DB 함수에서 강제)
+// ────────────────────────────────────────────────
+export async function fetchAdminStats(): Promise<AdminStats> {
+  const { data, error } = await supabase.rpc('get_admin_stats');
+  if (error) throw error;
+  return data as AdminStats;
+}
 
 // ────────────────────────────────────────────────
 // 공지사항 (관리자만 작성 가능, 로그인한 모두가 읽음)
