@@ -30,6 +30,7 @@ export interface DbCategory {
   user_id: string;
   name: string;
   color: string;
+  description: string | null;
   is_default: boolean;
   sort_order: number;
   created_at: string;
@@ -51,6 +52,7 @@ export interface DbTodo {
   completed: boolean;
   category_id: string | null;
   date: string | null;
+  due_date: string | null;
   start_time: string | null;
   notes: string | null;
   sort_order: number;

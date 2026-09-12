@@ -66,17 +66,17 @@ export async function fetchCategories(userId: string): Promise<DbCategory[]> {
   return data ?? [];
 }
 
-export async function createCategory(userId: string, name: string, color: string, sortOrder = 0): Promise<DbCategory> {
+export async function createCategory(userId: string, name: string, color: string, sortOrder = 0, description?: string | null): Promise<DbCategory> {
   const { data, error } = await supabase
     .from('categories')
-    .insert({ user_id: userId, name, color, sort_order: sortOrder })
+    .insert({ user_id: userId, name, color, sort_order: sortOrder, description: description ?? null })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateCategory(id: string, updates: Partial<Pick<DbCategory, 'name' | 'color' | 'sort_order'>>): Promise<void> {
+export async function updateCategory(id: string, updates: Partial<Pick<DbCategory, 'name' | 'color' | 'sort_order' | 'description'>>): Promise<void> {
   const { error } = await supabase.from('categories').update(updates).eq('id', id);
   if (error) throw error;
 }
@@ -94,7 +94,10 @@ export async function fetchTodos(userId: string): Promise<DbTodo[]> {
     .from('todos')
     .select('*, subtasks(*)')
     .eq('user_id', userId)
+    // sort_order가 같은(주로 기본값 0인 새 항목들) 행이 많아서 sort_order만으로는
+    // 순서가 매번 뒤바뀌어 보이는 문제가 있었음 → created_at을 2차 정렬 기준으로 추가해 항상 안정적인 순서를 보장
     .order('sort_order')
+    .order('created_at', { ascending: true })
     .order('created_at', { referencedTable: 'subtasks', ascending: true });
   if (error) throw error;
   return data ?? [];
@@ -102,7 +105,7 @@ export async function fetchTodos(userId: string): Promise<DbTodo[]> {
 
 export async function createTodo(
   userId: string,
-  fields: { title: string; completed?: boolean; category_id?: string | null; date?: string | null; start_time?: string | null; notes?: string }
+  fields: { title: string; completed?: boolean; category_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; notes?: string; sort_order?: number }
 ): Promise<DbTodo> {
   const { data, error } = await supabase
     .from('todos')
@@ -115,7 +118,7 @@ export async function createTodo(
 
 export async function updateTodo(
   id: string,
-  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'date' | 'start_time' | 'notes' | 'sort_order'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'date' | 'due_date' | 'start_time' | 'notes' | 'sort_order'>>
 ): Promise<void> {
   const { error } = await supabase.from('todos').update(updates).eq('id', id);
   if (error) throw error;

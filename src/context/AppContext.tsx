@@ -19,6 +19,7 @@ function toTodo(t: DbTodo): Todo {
     completed: t.completed,
     categoryId: t.category_id,
     date: t.date,
+    dueDate: t.due_date,
     startTime: t.start_time,
     notes: t.notes ?? '',
     subtasks: (t.subtasks ?? []).map(toSubTask),
@@ -27,7 +28,7 @@ function toTodo(t: DbTodo): Todo {
 }
 
 function toCategory(c: DbCategory): Category {
-  return { id: c.id, name: c.name, color: c.color, isDefault: c.is_default };
+  return { id: c.id, name: c.name, color: c.color, description: c.description, isDefault: c.is_default };
 }
 
 function toNote(n: DbNote): Note {
@@ -67,12 +68,13 @@ interface AppContextType {
   updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
   toggleTodo: (id: string) => Promise<void>;
-  toggleSubTask: (todoId: string, subTaskId: string) => Promise<void>;
-  addSubtaskInline: (todoId: string, title: string) => Promise<void>;
-  deleteSubtaskInline: (todoId: string, subTaskId: string) => Promise<void>;
+  toggleSubTask: (todoId: string, subTaskId: string, opts?: { autoCompleteParent?: boolean }) => Promise<void>;
+  updateSubtaskInline: (todoId: string, subTaskId: string, title: string) => Promise<void>;
+  addSubtaskInline: (todoId: string, title: string, opts?: { autoCompleteParent?: boolean }) => Promise<void>;
+  deleteSubtaskInline: (todoId: string, subTaskId: string, opts?: { autoCompleteParent?: boolean }) => Promise<void>;
   reorderTodos: (orderedIds: string[]) => Promise<void>;
-  addCategory: (name: string, color: string) => Promise<void>;
-  updateCategory: (id: string, updates: { name?: string; color?: string }) => Promise<void>;
+  addCategory: (name: string, color: string, description?: string) => Promise<void>;
+  updateCategory: (id: string, updates: { name?: string; color?: string; description?: string | null }) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   reorderCategories: (orderedIds: string[]) => Promise<void>;
   addNote: (title: string, content: string) => Promise<void>;
@@ -115,6 +117,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dataLoading, setDataLoading] = useState(true);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+  // 앱 진입 시 defaultScreen으로 딱 한 번만 이동하기 위한 플래그.
+  // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
+  //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
+  const didSetInitialScreenRef = useRef(false);
 
   // ── 초기 데이터 로드 ────────────────────────────────────
   useEffect(() => {
@@ -122,6 +128,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTodos([]); setCategories([]); setNotes([]);
       setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setNotices([]);
       setDataLoading(false);
+      didSetInitialScreenRef.current = false;
       return;
     }
 
@@ -144,10 +151,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (rawSettings) {
         const s = toSettings(rawSettings);
         setSettings(s);
-        setCurrentScreen(s.defaultScreen as Screen);
+        if (!didSetInitialScreenRef.current) {
+          setCurrentScreen(s.defaultScreen as Screen);
+          didSetInitialScreenRef.current = true;
+        }
       }
     }).finally(() => setDataLoading(false));
-  }, [user]);
+    // user.id만 의존성으로 둬서, 토큰 자동 갱신처럼 user "객체"만 새로 생성되고
+    // 실제 로그인 계정은 그대로인 경우에는 이 무거운 재조회 + 화면 이동이 일어나지 않게 함
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // ── 테마 적용 ───────────────────────────────────────────
   useEffect(() => {
@@ -198,7 +211,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     channelRef.current = channel;
     return () => { channel.unsubscribe(); };
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // ── Todos ────────────────────────────────────────────────
   const addTodo = useCallback(async (fields: Omit<Todo, 'id' | 'createdAt'>) => {
@@ -209,15 +223,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       completed: fields.completed,
       category_id: fields.categoryId,
       date: fields.date,
+      due_date: fields.dueDate ?? null,
       start_time: fields.startTime ?? null,
       notes: fields.notes,
+      // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
+      // (지정하지 않으면 DB 기본값 0이 겹쳐서 "입력 순서가 제멋대로" 보이는 문제가 있었음)
+      sort_order: todos.length,
     });
     if (subtasksList.length > 0) {
       await db.replaceSubtasks(row.id, subtasksList);
     }
     const updated = await db.fetchTodos(user.id);
     setTodos(updated.map(toTodo));
-  }, [user]);
+  }, [user, todos.length]);
 
   const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => {
     if (!user) return;
@@ -226,6 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
     if ('categoryId' in updates) dbUpdates.category_id = updates.categoryId ?? null;
     if ('date' in updates) dbUpdates.date = updates.date ?? null;
+    if ('dueDate' in updates) dbUpdates.due_date = updates.dueDate ?? null;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
@@ -249,29 +268,65 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (todo) await db.updateTodo(id, { completed: !todo.completed });
   }, [todos]);
 
-  const toggleSubTask = useCallback(async (todoId: string, subTaskId: string) => {
-    setTodos(prev => prev.map(t => {
-      if (t.id !== todoId) return t;
-      return { ...t, subtasks: t.subtasks.map(s => s.id === subTaskId ? { ...s, completed: !s.completed } : s) };
-    }));
-    const sub = todos.find(t => t.id === todoId)?.subtasks.find(s => s.id === subTaskId);
-    if (sub) await db.updateSubtask(subTaskId, { completed: !sub.completed });
+  // opts.autoCompleteParent: 하위 항목을 전부 완료하면 큰 제목(할 일)도 자동으로 완료 처리.
+  // 홈 화면에서만 이 동작을 켜고(TodoItem에 prop으로 전달), 저장소에서는 기존처럼 하위 항목과
+  // 큰 제목의 완료 여부가 서로 영향을 주지 않도록 opts 없이 호출함.
+  const toggleSubTask = useCallback(async (todoId: string, subTaskId: string, opts?: { autoCompleteParent?: boolean }) => {
+    const todo = todos.find(t => t.id === todoId);
+    const sub = todo?.subtasks.find(s => s.id === subTaskId);
+    if (!todo || !sub) return;
+
+    const updatedSubtasks = todo.subtasks.map(s => s.id === subTaskId ? { ...s, completed: !s.completed } : s);
+    const shouldAutoComplete = Boolean(opts?.autoCompleteParent) && updatedSubtasks.length > 0;
+    const newCompleted = shouldAutoComplete ? updatedSubtasks.every(s => s.completed) : todo.completed;
+
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, subtasks: updatedSubtasks, completed: newCompleted } : t));
+    await db.updateSubtask(subTaskId, { completed: !sub.completed });
+    if (shouldAutoComplete && newCompleted !== todo.completed) {
+      await db.updateTodo(todoId, { completed: newCompleted });
+    }
   }, [todos]);
 
-  const addSubtaskInline = useCallback(async (todoId: string, title: string) => {
+  const updateSubtaskInline = useCallback(async (todoId: string, subTaskId: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setTodos(prev => prev.map(t => {
+      if (t.id !== todoId) return t;
+      return { ...t, subtasks: t.subtasks.map(s => s.id === subTaskId ? { ...s, title: trimmed } : s) };
+    }));
+    await db.updateSubtask(subTaskId, { title: trimmed });
+  }, []);
+
+  const addSubtaskInline = useCallback(async (todoId: string, title: string, opts?: { autoCompleteParent?: boolean }) => {
+    // 완료 처리돼 있던 큰 제목에 하위 항목이 새로 추가되면(=아직 안 끝난 일이 생긴 것) 완료 표시를 다시 해제
+    const wasCompleted = todos.find(t => t.id === todoId)?.completed ?? false;
     const newSub = await db.createSubtask(todoId, title);
     setTodos(prev => prev.map(t =>
       t.id === todoId
-        ? { ...t, subtasks: [...t.subtasks, { id: newSub.id, title: newSub.title, completed: false }] }
+        ? {
+            ...t,
+            subtasks: [...t.subtasks, { id: newSub.id, title: newSub.title, completed: false }],
+            completed: opts?.autoCompleteParent ? false : t.completed,
+          }
         : t
     ));
-  }, []);
+    if (opts?.autoCompleteParent && wasCompleted) {
+      await db.updateTodo(todoId, { completed: false });
+    }
+  }, [todos]);
 
-  const deleteSubtaskInline = useCallback(async (todoId: string, subTaskId: string) => {
-    setTodos(prev => prev.map(t =>
-      t.id === todoId ? { ...t, subtasks: t.subtasks.filter(s => s.id !== subTaskId) } : t
-    ));
+  const deleteSubtaskInline = useCallback(async (todoId: string, subTaskId: string, opts?: { autoCompleteParent?: boolean }) => {
+    let autoCompleted: boolean | undefined;
+    setTodos(prev => prev.map(t => {
+      if (t.id !== todoId) return t;
+      const subtasks = t.subtasks.filter(s => s.id !== subTaskId);
+      const shouldAutoComplete = Boolean(opts?.autoCompleteParent) && subtasks.length > 0;
+      const completed = shouldAutoComplete ? subtasks.every(s => s.completed) : t.completed;
+      if (shouldAutoComplete) autoCompleted = completed;
+      return { ...t, subtasks, completed };
+    }));
     await db.deleteSubtask(subTaskId);
+    if (autoCompleted !== undefined) await db.updateTodo(todoId, { completed: autoCompleted });
   }, []);
 
   const reorderTodos = useCallback(async (orderedIds: string[]) => {
@@ -285,13 +340,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Categories ───────────────────────────────────────────
-  const addCategory = useCallback(async (name: string, color: string) => {
+  const addCategory = useCallback(async (name: string, color: string, description?: string) => {
     if (!user) return;
-    const row = await db.createCategory(user.id, name, color, categories.length);
+    const row = await db.createCategory(user.id, name, color, categories.length, description ?? null);
     setCategories(prev => [...prev, toCategory(row)]);
   }, [user, categories.length]);
 
-  const updateCategory = useCallback(async (id: string, updates: { name?: string; color?: string }) => {
+  const updateCategory = useCallback(async (id: string, updates: { name?: string; color?: string; description?: string | null }) => {
     setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
     await db.updateCategory(id, updates);
   }, []);
@@ -387,7 +442,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       todos, categories, notes, settings, monthlyGoals, ddays, notices, isAdmin, currentScreen, selectedDate, dataLoading,
-      addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, addSubtaskInline, deleteSubtaskInline, reorderTodos,
+      addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, updateSubtaskInline, addSubtaskInline, deleteSubtaskInline, reorderTodos,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addNote, updateNote, deleteNote,
       updateSettings,

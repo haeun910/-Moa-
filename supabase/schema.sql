@@ -9,6 +9,7 @@ create table if not exists public.categories (
   user_id     uuid not null references auth.users(id) on delete cascade,
   name        text not null,
   color       text not null default '#6366f1',
+  description text,                          -- 저장소 화면에서만 보이는 카테고리 설명
   is_default  boolean not null default false,
   sort_order  integer not null default 0,
   created_at  timestamptz not null default now()
@@ -22,6 +23,7 @@ create table if not exists public.todos (
   completed   boolean not null default false,
   category_id uuid references public.categories(id) on delete set null,
   date        date,
+  due_date    date,                          -- 작업할 날짜(date)와는 별개인 마감일
   start_time  text,
   notes       text,
   sort_order  integer not null default 0,

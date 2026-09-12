@@ -10,6 +10,7 @@ export interface Todo {
   completed: boolean;
   categoryId: string | null;
   date: string | null; // ISO date string YYYY-MM-DD or null
+  dueDate?: string | null; // 마감일(작업할 날짜 date와는 별개) YYYY-MM-DD or null
   startTime?: string | null; // HH:MM
   subtasks: SubTask[];
   createdAt: string;
@@ -20,6 +21,7 @@ export interface Category {
   id: string;
   name: string;
   color: string;
+  description?: string | null; // 저장소 화면에서만 노출되는 설명
   isDefault?: boolean;
 }
 
