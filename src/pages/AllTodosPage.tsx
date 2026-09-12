@@ -31,7 +31,7 @@ function DroppableCategoryGroup({ id, children }: { id: string; children: React.
 // 지난 날짜를 포함해 원하는 날짜로 바로 보낼 수 있는 버튼.
 // ("오늘로"는 오늘 날짜 전용이라 지나간 날짜에 등록하려면 상세 편집을 열어야 했음)
 function SendToDateButton({ todo }: { todo: Todo }) {
-  const { updateTodo } = useApp();
+  const { updateTodo, moveSubtasksToDate } = useApp();
   const [open, setOpen] = useState(false);
 
   return (
@@ -51,7 +51,12 @@ function SendToDateButton({ todo }: { todo: Todo }) {
           defaultValue={todo.date ?? ''}
           className="absolute right-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-400"
           onChange={e => {
-            if (e.target.value) updateTodo(todo.id, { date: e.target.value });
+            const value = e.target.value;
+            if (value) {
+              // 하위 항목이 있으면 큰 제목(카테고리)은 저장소에 남기고 하위 항목만 그 날짜로 보냄
+              if (todo.subtasks.length > 0) moveSubtasksToDate(todo.id, todo.subtasks.map(s => s.id), value);
+              else updateTodo(todo.id, { date: value });
+            }
             setOpen(false);
           }}
           onBlur={() => setOpen(false)}
@@ -96,7 +101,7 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
 }
 
 export default function AllTodosPage() {
-  const { todos: allTodos, categories, addTodo, updateTodo, deleteTodo, reorderTodos } = useApp();
+  const { todos: allTodos, categories, addTodo, updateTodo, deleteTodo, reorderTodos, moveSubtasksToDate } = useApp();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // 저장소 = 날짜 없이 보관 중인 할 일만 (날짜가 정해지면 저장소에서는 사라져야 함)
@@ -135,7 +140,14 @@ export default function AllTodosPage() {
   }
 
   async function sendToToday(todo: Todo) {
-    await updateTodo(todo.id, { date: todayStr });
+    // 하위 항목이 있는 큰 제목은 그 자체가 할 일이 아니라 카테고리 같은 컨테이너라서
+    // 통째로 옮기지 않고, 하위 항목들만 오늘로 보냄(저장소엔 큰 제목 그대로 남음).
+    // 하위 항목이 없는(그 자체가 그냥 할 일인) 경우에만 항목 자체를 오늘로 옮김.
+    if (todo.subtasks.length > 0) {
+      await moveSubtasksToDate(todo.id, todo.subtasks.map(s => s.id), todayStr);
+    } else {
+      await updateTodo(todo.id, { date: todayStr });
+    }
   }
 
   // 비슷한 할 일을 매번 새로 입력하지 않도록, 기존 할 일(제목+카테고리+하위 항목)을
