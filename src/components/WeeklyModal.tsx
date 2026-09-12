@@ -24,7 +24,7 @@ export default function WeeklyModal({ onClose }: { onClose: () => void }) {
   async function handleAdd(dateStr: string) {
     const title = addTitle.trim();
     if (!title) { setAddingDate(null); return; }
-    await addTodo({ title, completed: false, categoryId: null, date: dateStr, startTime: null, subtasks: [], notes: '' });
+    await addTodo({ title, completed: false, categoryId: null, subcategoryId: null, date: dateStr, startTime: null, notes: '' });
     setAddTitle('');
     setAddingDate(null);
   }

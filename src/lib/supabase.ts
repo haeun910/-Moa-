@@ -36,11 +36,11 @@ export interface DbCategory {
   created_at: string;
 }
 
-export interface DbSubtask {
+export interface DbSubcategory {
   id: string;
-  todo_id: string;
-  title: string;
-  completed: boolean;
+  user_id: string;
+  category_id: string;
+  name: string;
   sort_order: number;
   created_at: string;
 }
@@ -51,6 +51,7 @@ export interface DbTodo {
   title: string;
   completed: boolean;
   category_id: string | null;
+  subcategory_id: string | null;
   date: string | null;
   due_date: string | null;
   is_dday: boolean;
@@ -59,7 +60,6 @@ export interface DbTodo {
   sort_order: number;
   created_at: string;
   updated_at: string;
-  subtasks?: DbSubtask[];
 }
 
 export interface DbNote {

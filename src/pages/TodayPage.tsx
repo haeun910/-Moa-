@@ -121,7 +121,7 @@ export default function TodayPage() {
     if (!title || quickLoading) return;
     setQuickLoading(true);
     try {
-      await addTodo({ title, completed: false, categoryId: null, date: selectedDate, startTime: null, subtasks: [], notes: '' });
+      await addTodo({ title, completed: false, categoryId: null, subcategoryId: null, date: selectedDate, startTime: null, notes: '' });
       setQuickTitle('');
       quickInputRef.current?.focus();
     } finally { setQuickLoading(false); }
@@ -190,7 +190,7 @@ export default function TodayPage() {
               )}
               <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{groupTodos.length}</span>
             </div>
-            <TodoList todos={groupTodos} onEdit={openEdit} autoCompleteSubtasks getActions={getTodoActions} />
+            <TodoList todos={groupTodos} onEdit={openEdit} getActions={getTodoActions} />
           </div>
         ))}
       </div>
@@ -520,7 +520,7 @@ export default function TodayPage() {
                               onKeyDown={async e => {
                                 if (e.key === 'Enter') {
                                   const t = weekAddTitle.trim();
-                                  if (t) await addTodo({ title: t, completed: false, categoryId: null, date: dateStr, startTime: null, subtasks: [], notes: '' });
+                                  if (t) await addTodo({ title: t, completed: false, categoryId: null, subcategoryId: null, date: dateStr, startTime: null, notes: '' });
                                   setWeekAddTitle(''); setWeekAddDate(null);
                                 }
                                 if (e.key === 'Escape') { setWeekAddDate(null); setWeekAddTitle(''); }

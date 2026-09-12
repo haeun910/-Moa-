@@ -19,7 +19,7 @@ const SCREEN_OPTIONS: { value: Settings['defaultScreen']; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, todos, notes, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, subcategories, todos, notes, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -41,7 +41,7 @@ export default function SettingsPage() {
   function handleExport() {
     const payload = {
       exportedAt: new Date().toISOString(),
-      todos, categories, notes, monthlyGoals, ddays,
+      todos, categories, subcategories, notes, monthlyGoals, ddays,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

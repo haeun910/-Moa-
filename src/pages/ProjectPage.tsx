@@ -11,7 +11,7 @@ import type { Todo } from '../types';
 // 별도의 프로젝트 테이블 없이 기존 카테고리 데이터를 다른 방식으로 보여주는 화면이라
 // 새 데이터 구조 없이도 바로 쓸 수 있음.
 export default function ProjectPage() {
-  const { categories, todos, toggleTodo, setCurrentScreen } = useApp();
+  const { categories, subcategories, todos, toggleTodo, setCurrentScreen } = useApp();
   const [projectCatId, setProjectCatId] = useState<string | null>(categories[0]?.id ?? null);
 
   const category = categories.find(c => c.id === projectCatId);
@@ -32,7 +32,7 @@ export default function ProjectPage() {
 
   function TimelineItem({ todo }: { todo: Todo }) {
     const cat = categories.find(c => c.id === todo.categoryId);
-    const subtaskDone = todo.subtasks.filter(s => s.completed).length;
+    const subcat = subcategories.find(s => s.id === todo.subcategoryId);
     return (
       <div className="flex gap-3">
         <div className="flex flex-col items-center flex-shrink-0 pt-1">
@@ -55,9 +55,9 @@ export default function ProjectPage() {
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {todo.date && <span className="text-[11px] text-gray-400">{format(parseISO(todo.date), 'M/d (EEE)', { locale: ko })}</span>}
             {!todo.date && todo.dueDate && <span className="text-[11px] text-gray-400">마감 {format(parseISO(todo.dueDate), 'M/d', { locale: ko })}</span>}
-            {todo.subtasks.length > 0 && (
+            {subcat && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                {subtaskDone}/{todo.subtasks.length}
+                {subcat.name}
               </span>
             )}
           </div>
