@@ -49,7 +49,14 @@ function toNotice(n: DbNotice): Notice {
 }
 
 function toSettings(s: DbSettings): Settings {
-  return { theme: s.theme, defaultScreen: s.default_screen, notifications: s.notifications };
+  return {
+    theme: s.theme,
+    defaultScreen: s.default_screen,
+    notifications: s.notifications,
+    listSortBy: s.list_sort_by,
+    hideCompleted: s.hide_completed,
+    hiddenCategoryIds: s.hidden_category_ids ?? [],
+  };
 }
 
 // ── Context 타입 ──────────────────────────────────────────
@@ -102,6 +109,9 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   defaultScreen: 'today',
   notifications: false,
+  listSortBy: 'manual',
+  hideCompleted: false,
+  hiddenCategoryIds: [],
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -488,6 +498,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.theme) dbUpdates.theme = updates.theme;
     if (updates.defaultScreen) dbUpdates.default_screen = updates.defaultScreen;
     if (updates.notifications !== undefined) dbUpdates.notifications = updates.notifications;
+    if (updates.listSortBy) dbUpdates.list_sort_by = updates.listSortBy;
+    if (updates.hideCompleted !== undefined) dbUpdates.hide_completed = updates.hideCompleted;
+    if (updates.hiddenCategoryIds !== undefined) dbUpdates.hidden_category_ids = updates.hiddenCategoryIds;
     await db.upsertSettings(user.id, dbUpdates);
   }, [user]);
 

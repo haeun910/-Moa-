@@ -10,6 +10,7 @@ import AllTodosPage from './pages/AllTodosPage';
 import NotesPage from './pages/NotesPage';
 import SettingsPage from './pages/SettingsPage';
 import CategoryPage from './pages/CategoryPage';
+import ProjectPage from './pages/ProjectPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import AuthPage from './pages/AuthPage';
@@ -59,6 +60,7 @@ function AppContent() {
       {currentScreen === 'notes'    && <NotesPage />}
       {currentScreen === 'settings' && <SettingsPage />}
       {currentScreen === 'categories' && <CategoryPage />}
+      {currentScreen === 'project' && <ProjectPage />}
       {currentScreen === 'terms' && <TermsPage />}
       {currentScreen === 'privacy' && <PrivacyPage />}
       <InstallPrompt />
