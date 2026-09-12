@@ -53,6 +53,7 @@ export interface DbTodo {
   category_id: string | null;
   date: string | null;
   due_date: string | null;
+  is_dday: boolean;
   start_time: string | null;
   notes: string | null;
   sort_order: number;

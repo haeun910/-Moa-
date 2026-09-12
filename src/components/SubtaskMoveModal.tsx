@@ -64,7 +64,7 @@ export default function SubtaskMoveModal({ todo, onClose }: { todo: Todo; onClos
           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 truncate">{todo.title}</p>
 
           <div className="flex items-center justify-between mb-2 px-0.5">
-            <span className="text-xs text-gray-400 dark:text-gray-500">하위 항목 {checked.size}/{todo.subtasks.length}개 선택</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">세부 할일 {checked.size}/{todo.subtasks.length}개 선택</span>
             <button onClick={toggleAll} className="text-xs font-semibold text-leaf-600 hover:text-leaf-700 dark:text-leaf-400">
               {allChecked ? '전체 해제' : '전체 선택'}
             </button>
@@ -94,7 +94,7 @@ export default function SubtaskMoveModal({ todo, onClose }: { todo: Todo; onClos
 
           <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-3 leading-relaxed">
             {noneChecked
-              ? '하위 항목을 하나 이상 선택해주세요.'
+              ? '세부 할일을 하나 이상 선택해주세요.'
               : allChecked
                 ? '전체를 선택했어요. 이 할 일 전체가 오늘로 이동해요.'
                 : '선택한 항목만 오늘 할 일로 옮기고, 나머지는 저장소에 그대로 남아요.'}

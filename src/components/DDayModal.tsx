@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { X, Flag } from 'lucide-react';
 import { format } from 'date-fns';
 import { useApp } from '../context/AppContext';
+import type { DDay } from '../types';
 
-export default function DDayModal({ onClose }: { onClose: () => void }) {
-  const { addDDay } = useApp();
-  const [title, setTitle] = useState('');
-  const [targetDate, setTargetDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+export default function DDayModal({ dday, onClose }: { dday?: DDay; onClose: () => void }) {
+  const { addDDay, updateDDay } = useApp();
+  const isEdit = !!dday;
+  const [title, setTitle] = useState(dday?.title ?? '');
+  const [targetDate, setTargetDate] = useState(dday?.targetDate ?? format(new Date(), 'yyyy-MM-dd'));
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
@@ -14,7 +16,8 @@ export default function DDayModal({ onClose }: { onClose: () => void }) {
     if (!t || !targetDate || saving) return;
     setSaving(true);
     try {
-      await addDDay(t, targetDate);
+      if (isEdit) await updateDDay(dday.id, { title: t, targetDate });
+      else await addDDay(t, targetDate);
       onClose();
     } finally {
       setSaving(false);
@@ -34,7 +37,7 @@ export default function DDayModal({ onClose }: { onClose: () => void }) {
         <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Flag size={16} className="text-leaf-600" />
-            <h2 className="text-base font-bold text-gray-900 dark:text-white">D-Day 추가</h2>
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">{isEdit ? 'D-Day 수정' : 'D-Day 추가'}</h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
             className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -65,7 +68,7 @@ export default function DDayModal({ onClose }: { onClose: () => void }) {
             </button>
             <button onClick={handleSave} disabled={!title.trim() || !targetDate || saving}
               className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 text-sm font-semibold transition-colors">
-              {saving ? '추가 중...' : '추가'}
+              {saving ? '저장 중...' : isEdit ? '저장' : '추가'}
             </button>
           </div>
         </div>

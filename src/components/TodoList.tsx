@@ -24,11 +24,12 @@ interface Props {
   getActions?: (todo: Todo) => React.ReactNode;
   autoCompleteSubtasks?: boolean;
   allowSendSubtaskToToday?: boolean;
-  // 저장소에서만: 할 일을 다른 할 일의 "가운데"에 끌어다 놓으면 하위 항목으로 합쳐짐
+  completeMovesToToday?: boolean;
+  // 저장소에서만: 할 일을 다른 할 일의 "가운데"에 끌어다 놓으면 세부 할일로 합쳐짐
   enableMergeToSubtask?: boolean;
 }
 
-export default function TodoList({ todos, onEdit, getActions, autoCompleteSubtasks, allowSendSubtaskToToday, enableMergeToSubtask }: Props) {
+export default function TodoList({ todos, onEdit, getActions, autoCompleteSubtasks, allowSendSubtaskToToday, completeMovesToToday, enableMergeToSubtask }: Props) {
   const { reorderTodos, updateTodo, deleteTodo } = useApp();
 
   // 드래그로 정렬한 순서를 컴포넌트 로컬 state(localOrder)에 따로 보관했었는데,
@@ -79,7 +80,7 @@ export default function TodoList({ todos, onEdit, getActions, autoCompleteSubtas
     >
       <SortableContext items={todos.map(t => t.id)} strategy={verticalListSortingStrategy}>
         {todos.map(todo => (
-          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} autoCompleteSubtasks={autoCompleteSubtasks} allowSendSubtaskToToday={allowSendSubtaskToToday} />
+          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} autoCompleteSubtasks={autoCompleteSubtasks} allowSendSubtaskToToday={allowSendSubtaskToToday} completeMovesToToday={completeMovesToToday} />
         ))}
       </SortableContext>
     </DndContext>

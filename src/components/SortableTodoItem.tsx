@@ -11,9 +11,10 @@ interface Props {
   actions?: React.ReactNode;
   autoCompleteSubtasks?: boolean;
   allowSendSubtaskToToday?: boolean;
+  completeMovesToToday?: boolean;
 }
 
-export default function SortableTodoItem({ todo, onEdit, actions, autoCompleteSubtasks, allowSendSubtaskToToday }: Props) {
+export default function SortableTodoItem({ todo, onEdit, actions, autoCompleteSubtasks, allowSendSubtaskToToday, completeMovesToToday }: Props) {
   const {
     attributes,
     listeners,
@@ -41,7 +42,7 @@ export default function SortableTodoItem({ todo, onEdit, actions, autoCompleteSu
         <GripVertical size={14} className="text-gray-300 dark:text-gray-600" />
       </div>
       <div className="pl-5">
-        <TodoItem todo={todo} onEdit={onEdit} actions={actions} autoCompleteSubtasks={autoCompleteSubtasks} allowSendSubtaskToToday={allowSendSubtaskToToday} />
+        <TodoItem todo={todo} onEdit={onEdit} actions={actions} autoCompleteSubtasks={autoCompleteSubtasks} allowSendSubtaskToToday={allowSendSubtaskToToday} completeMovesToToday={completeMovesToToday} />
       </div>
     </div>
   );

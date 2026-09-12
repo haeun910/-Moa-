@@ -24,6 +24,7 @@ create table if not exists public.todos (
   category_id uuid references public.categories(id) on delete set null,
   date        date,
   due_date    date,                          -- 작업할 날짜(date)와는 별개인 마감일
+  is_dday     boolean not null default false, -- 체크하면 홈 화면 D-Day 목록에도 자동 노출
   start_time  text,
   notes       text,
   sort_order  integer not null default 0,

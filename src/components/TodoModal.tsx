@@ -36,6 +36,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
   const [title, setTitle] = useState(todo?.title ?? '');
   const [date, setDate] = useState(todo?.date ?? defaultDate ?? '');
   const [dueDate, setDueDate] = useState(todo?.dueDate ?? '');
+  const [isDday, setIsDday] = useState(todo?.isDday ?? false);
   const [startTime, setStartTime] = useState(todo?.startTime ?? defaultTime ?? '');
   const [categoryId, setCategoryId] = useState<string | null>(todo?.categoryId ?? null);
   const [notes, setNotes] = useState(todo?.notes ?? '');
@@ -62,6 +63,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
       categoryId,
       date: date || null,
       dueDate: dueDate || null,
+      isDday: Boolean((date || dueDate) && isDday),
       startTime: startTime || null,
       subtasks,
       notes,
@@ -177,6 +179,16 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
               onChange={e => setDueDate(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
             />
+            <label className={`flex items-center gap-2 mt-2 text-xs ${(date || dueDate) ? 'text-gray-500 dark:text-gray-400 cursor-pointer' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}>
+              <input
+                type="checkbox"
+                checked={isDday}
+                disabled={!date && !dueDate}
+                onChange={e => setIsDday(e.target.checked)}
+                className="w-3.5 h-3.5 rounded accent-leaf-500"
+              />
+              홈 화면 D-Day 목록에도 표시 (마감일이 있으면 마감일, 없으면 날짜 기준)
+            </label>
           </div>
 
           {/* Repeat (새 할 일에만 적용) */}
@@ -281,7 +293,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
 
           {/* Subtasks */}
           <div>
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">하위 항목</label>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">세부 할일</label>
             <div className="space-y-2 mb-2">
               {subtasks.map(sub => (
                 <div key={sub.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -316,7 +328,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, onClose }: P
                 type="text"
                 value={newSubtask}
                 onChange={e => setNewSubtask(e.target.value)}
-                placeholder="하위 항목 추가"
+                placeholder="세부 할일 추가"
                 className="flex-1 px-3.5 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
                 onKeyDown={e => { if (e.key === 'Enter') addSubtask(); }}
               />
