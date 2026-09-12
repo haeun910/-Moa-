@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import type { Todo } from '../types';
 
 export default function SubtaskMoveModal({ todo, onClose }: { todo: Todo; onClose: () => void }) {
-  const { addTodo, updateTodo } = useApp();
+  const { moveSubtasksToDate } = useApp();
   const [checked, setChecked] = useState<Set<string>>(new Set(todo.subtasks.map(s => s.id)));
   const [saving, setSaving] = useState(false);
 
@@ -32,27 +32,10 @@ export default function SubtaskMoveModal({ todo, onClose }: { todo: Todo; onClos
     if (noneChecked || saving) return;
     setSaving(true);
     try {
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const selected = todo.subtasks.filter(s => checked.has(s.id));
-      const remaining = todo.subtasks.filter(s => !checked.has(s.id));
-
-      if (remaining.length === 0) {
-        // 하위 항목을 전부 골랐으면 할 일 자체를 그대로 오늘로 이동 (같은 항목 유지)
-        await updateTodo(todo.id, { date: todayStr });
-      } else {
-        // 일부만 골랐으면: 큰 할 일 + 고른 하위 항목만 오늘 날짜의 새 할 일로 옮기고,
-        // 나머지 하위 항목은 원래 할 일(저장소)에 그대로 남긴다.
-        await addTodo({
-          title: todo.title,
-          completed: false,
-          categoryId: todo.categoryId,
-          date: todayStr,
-          startTime: null,
-          subtasks: selected.map(s => ({ id: s.id, title: s.title, completed: s.completed })),
-          notes: '',
-        });
-        await updateTodo(todo.id, { subtasks: remaining });
-      }
+      // 큰 제목은 할 일이 아니라 하위 항목을 묶는 카테고리라서 그 자체를 옮기지 않고,
+      // 고른 하위 항목만 오늘 날짜로 보냄(오늘에 같은 이름 컨테이너가 있으면 합쳐짐).
+      // 나머지 하위 항목은 원래 할 일(저장소)에 그대로 남는다.
+      await moveSubtasksToDate(todo.id, Array.from(checked), format(new Date(), 'yyyy-MM-dd'));
       onClose();
     } finally {
       setSaving(false);

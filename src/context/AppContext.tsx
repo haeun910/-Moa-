@@ -73,6 +73,7 @@ interface AppContextType {
   addSubtaskInline: (todoId: string, title: string, opts?: { autoCompleteParent?: boolean }) => Promise<void>;
   deleteSubtaskInline: (todoId: string, subTaskId: string, opts?: { autoCompleteParent?: boolean }) => Promise<void>;
   reorderTodos: (orderedIds: string[]) => Promise<void>;
+  moveSubtasksToDate: (todoId: string, subtaskIds: string[], targetDate: string) => Promise<void>;
   addCategory: (name: string, color: string, description?: string) => Promise<void>;
   updateCategory: (id: string, updates: { name?: string; color?: string; description?: string | null }) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -339,6 +340,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await Promise.all(orderedIds.map((id, i) => db.updateTodo(id, { sort_order: i })));
   }, []);
 
+  // 저장소의 "큰 제목"은 진짜 할 일이 아니라 하위 항목들을 묶는 카테고리 같은 존재라서,
+  // 하위 항목을 오늘(또는 특정 날짜)로 보낼 때 큰 제목 자체를 옮기면 안 되고, 그 날짜에
+  // 이름이 같은 컨테이너가 이미 있으면 거기로 합치고 없으면 새로 만들어야 함.
+  // (예전엔 보낼 때마다 매번 새 할 일을 만들어서, 여러 번 나눠 보내면 같은 이름의
+  //  할 일이 오늘 화면에 여러 개로 흩어지는 문제가 있었음)
+  const moveSubtasksToDate = useCallback(async (todoId: string, subtaskIds: string[], targetDate: string) => {
+    const original = todos.find(t => t.id === todoId);
+    if (!original || subtaskIds.length === 0) return;
+    const idSet = new Set(subtaskIds);
+    const moving = original.subtasks.filter(s => idSet.has(s.id));
+    const remaining = original.subtasks.filter(s => !idSet.has(s.id));
+    if (moving.length === 0) return;
+
+    const existingTarget = todos.find(t =>
+      t.id !== todoId && t.date === targetDate && t.title === original.title && t.categoryId === original.categoryId
+    );
+
+    if (existingTarget) {
+      const existingIds = new Set(existingTarget.subtasks.map(s => s.id));
+      const toAppend = moving.filter(s => !existingIds.has(s.id));
+      if (toAppend.length > 0) {
+        await updateTodo(existingTarget.id, { subtasks: [...existingTarget.subtasks, ...toAppend] });
+      }
+    } else {
+      await addTodo({
+        title: original.title,
+        completed: false,
+        categoryId: original.categoryId,
+        date: targetDate,
+        startTime: null,
+        subtasks: moving,
+        notes: '',
+      });
+    }
+
+    // 큰 제목(컨테이너)은 저장소에 그대로 남기고, 옮긴 하위 항목만 뺌 (0개가 남아도 삭제하지 않음)
+    await updateTodo(todoId, { subtasks: remaining });
+  }, [todos, addTodo, updateTodo]);
+
   // ── Categories ───────────────────────────────────────────
   const addCategory = useCallback(async (name: string, color: string, description?: string) => {
     if (!user) return;
@@ -442,7 +482,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       todos, categories, notes, settings, monthlyGoals, ddays, notices, isAdmin, currentScreen, selectedDate, dataLoading,
-      addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, updateSubtaskInline, addSubtaskInline, deleteSubtaskInline, reorderTodos,
+      addTodo, updateTodo, deleteTodo, toggleTodo, toggleSubTask, updateSubtaskInline, addSubtaskInline, deleteSubtaskInline, reorderTodos, moveSubtasksToDate,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addNote, updateNote, deleteNote,
       updateSettings,

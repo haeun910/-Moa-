@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, allowSendSubtaskToToday }: Props) {
-  const { toggleTodo, toggleSubTask, deleteTodo, addTodo, updateTodo, addSubtaskInline, updateSubtaskInline, deleteSubtaskInline, categories } = useApp();
+  const { toggleTodo, toggleSubTask, deleteTodo, updateTodo, moveSubtasksToDate, addSubtaskInline, updateSubtaskInline, deleteSubtaskInline, categories } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -85,25 +85,11 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
     setEditingTitle(false);
   }
 
-  // 하위 항목 하나만 오늘 할 일로 보냄: 남은 하위 항목이 없으면 이 할 일 자체를 오늘로 옮기고,
-  // 남은 게 있으면 이 하위 항목만 담은 새 할 일을 오늘 날짜로 만들고 원래 항목에서는 뺌
+  // 하위 항목 하나만 오늘로 보냄. 큰 제목은 할 일이 아니라 하위 항목을 묶는 카테고리라서,
+  // moveSubtasksToDate가 오늘 날짜에 이미 있는 같은 이름 컨테이너로 합쳐주거나 새로 만들어줌
+  // (그래서 여러 개를 하나씩 나눠 보내도 오늘 화면에서 한 군데로 모임)
   async function sendSubtaskToToday(sub: SubTask) {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const remaining = todo.subtasks.filter(s => s.id !== sub.id);
-    if (remaining.length === 0) {
-      await updateTodo(todo.id, { date: todayStr });
-    } else {
-      await addTodo({
-        title: todo.title,
-        completed: false,
-        categoryId: todo.categoryId,
-        date: todayStr,
-        startTime: null,
-        subtasks: [{ id: sub.id, title: sub.title, completed: sub.completed }],
-        notes: '',
-      });
-      await updateTodo(todo.id, { subtasks: remaining });
-    }
+    await moveSubtasksToDate(todo.id, [sub.id], format(new Date(), 'yyyy-MM-dd'));
   }
 
   return (
