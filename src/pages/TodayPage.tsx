@@ -127,7 +127,7 @@ export default function TodayPage() {
               )}
               <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{groupTodos.length}</span>
             </div>
-            <TodoList todos={groupTodos} onEdit={openEdit} />
+            <TodoList todos={groupTodos} onEdit={openEdit} autoCompleteSubtasks />
           </div>
         ))}
       </div>
@@ -138,7 +138,10 @@ export default function TodayPage() {
     <div className="min-h-screen h-auto overflow-y-auto md:h-screen md:overflow-hidden pb-[62px] flex flex-col lg:flex-row">
 
       {/* ── 달력 + 저장소 영역 (모바일은 화면에 억지로 끼워 맞추지 않고 자연스럽게 스크롤) ── */}
-      <div className={`flex flex-col md:overflow-hidden transition-all duration-300 ease-in-out ${panelOpen ? 'md:h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
+      {/* 노트북처럼 화면 세로 길이가 짧을 때 목표/D-Day 카드 + 달력의 최소 높이 합이 화면을 넘으면
+          예전엔 md:overflow-hidden 때문에 달력 아래쪽이 그냥 잘려서 안 보였음.
+          내용이 넘칠 때는 이 영역 자체가 스크롤되도록 해서 "잘려 보이는" 대신 스크롤로 다 볼 수 있게 함 */}
+      <div className={`flex flex-col overflow-y-auto md:overflow-x-hidden transition-all duration-300 ease-in-out ${panelOpen ? 'md:h-1/2 lg:h-auto lg:flex-1' : 'flex-1'}`}>
 
         <div className="flex-1 flex flex-col px-4 sm:px-5 pt-4 pb-4 md:min-h-0">
 
@@ -146,7 +149,7 @@ export default function TodayPage() {
           <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
             {/* 이번달 목표 */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[168px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[140px]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Flag size={14} className="text-leaf-500 md:w-[13px] md:h-[13px]" />
@@ -192,7 +195,7 @@ export default function TodayPage() {
             </div>
 
             {/* D-Day */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[168px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[140px]">
               <div className="flex items-center justify-between">
                 <span className="text-sm md:text-xs font-bold text-gray-700 dark:text-gray-300">D-Day</span>
                 <button onClick={() => setShowDdayModal(true)} aria-label="D-Day 추가"
@@ -301,7 +304,7 @@ export default function TodayPage() {
           {/* ── 달력 / 주간 카드 ── */}
           {calView === 'month' ? (
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 md:min-h-0'
+              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[200px]' : 'flex-1 md:min-h-0'
             }`}>
               <div className="flex-shrink-0 grid grid-cols-7 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
                 {DAY_LABELS.map((d, i) => (
@@ -375,7 +378,7 @@ export default function TodayPage() {
           ) : (
             /* ── 주간 뷰 (인라인) ── */
             <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
-              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[260px]' : 'flex-1 md:min-h-0'
+              panelOpen ? 'md:flex-1 md:h-auto md:min-h-[200px]' : 'flex-1 md:min-h-0'
             }`}>
               <div className="flex-1 overflow-auto p-2">
                 <div className="grid grid-cols-7 gap-1.5 h-full" style={{ minHeight: '260px' }}>

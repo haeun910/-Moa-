@@ -11,26 +11,34 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { useApp } from '../context/AppContext';
 import type { Category } from '../types';
 
-const PRESET_COLORS = ['#7B7FE0','#9B7FDB','#DB7FAE','#DE7373','#E0985A','#C99A3A','#5FB98A','#5FB4C2','#6B98E0','#8891A0'];
+// 색상 종류를 10개 → 20개로 확장 (요청: "카테고리 색상 더 다양하게, 총 20가지 정도")
+const PRESET_COLORS = [
+  '#7B7FE0', '#9B7FDB', '#DB7FAE', '#DE7373', '#E0985A',
+  '#C99A3A', '#5FB98A', '#5FB4C2', '#6B98E0', '#8891A0',
+  '#D65D5D', '#D6C247', '#8FBF4D', '#4FAE6C', '#4FB8D6',
+  '#5C6BC0', '#A0729B', '#C766A8', '#B5793D', '#7D8F4F',
+];
 
 interface ItemProps {
   cat: Category;
   editingId: string | null;
   editName: string;
   editColor: string;
+  editDescription: string;
   confirmDeleteId: string | null;
   onStartEdit: (id: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onEditName: (v: string) => void;
   onEditColor: (v: string) => void;
+  onEditDescription: (v: string) => void;
   onDelete: (id: string) => void;
   onCancelDelete: () => void;
 }
 
 function SortableCategoryItem({
-  cat, editingId, editName, editColor, confirmDeleteId,
-  onStartEdit, onSaveEdit, onCancelEdit, onEditName, onEditColor, onDelete, onCancelDelete,
+  cat, editingId, editName, editColor, editDescription, confirmDeleteId,
+  onStartEdit, onSaveEdit, onCancelEdit, onEditName, onEditColor, onEditDescription, onDelete, onCancelDelete,
 }: ItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -46,6 +54,11 @@ function SortableCategoryItem({
           <input value={editName} onChange={e => onEditName(e.target.value)}
             className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500"
             onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); }}
+          />
+          <textarea value={editDescription} onChange={e => onEditDescription(e.target.value)}
+            placeholder="설명 (저장소 화면에서만 보여요, 선택)"
+            rows={2}
+            className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
           />
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map(color => (
@@ -73,7 +86,12 @@ function SortableCategoryItem({
             <GripVertical size={15} />
           </span>
           <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-          <span className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-300">{cat.name}</span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{cat.name}</span>
+            {cat.description && (
+              <span className="block text-[11px] text-gray-400 dark:text-gray-500 truncate">{cat.description}</span>
+            )}
+          </span>
           {cat.isDefault && (
             <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">기본</span>
           )}
@@ -105,9 +123,11 @@ export default function CategoryPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState(PRESET_COLORS[0]);
+  const [editDescription, setEditDescription] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
+  const [newDescription, setNewDescription] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -118,19 +138,21 @@ export default function CategoryPage() {
   function startEdit(id: string) {
     const cat = categories.find(c => c.id === id);
     if (!cat) return;
-    setEditingId(id); setEditName(cat.name); setEditColor(cat.color);
+    setEditingId(id); setEditName(cat.name); setEditColor(cat.color); setEditDescription(cat.description ?? '');
     setShowAdd(false);
   }
 
   function saveEdit() {
-    if (editingId && editName.trim()) updateCategory(editingId, { name: editName.trim(), color: editColor });
+    if (editingId && editName.trim()) {
+      updateCategory(editingId, { name: editName.trim(), color: editColor, description: editDescription.trim() || null });
+    }
     setEditingId(null);
   }
 
   async function handleAdd() {
     if (!newName.trim()) return;
-    await addCategory(newName.trim(), newColor);
-    setNewName(''); setNewColor(PRESET_COLORS[0]); setShowAdd(false);
+    await addCategory(newName.trim(), newColor, newDescription.trim() || undefined);
+    setNewName(''); setNewColor(PRESET_COLORS[0]); setNewDescription(''); setShowAdd(false);
   }
 
   async function handleDelete(id: string) {
@@ -171,6 +193,11 @@ export default function CategoryPage() {
               className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
               onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
             />
+            <textarea value={newDescription} onChange={e => setNewDescription(e.target.value)}
+              placeholder="설명 (저장소 화면에서만 보여요, 선택)"
+              rows={2}
+              className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-leaf-500 placeholder-gray-400"
+            />
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map(color => (
                 <button key={color} onClick={() => setNewColor(color)} aria-label={`색상 ${color}`}
@@ -200,12 +227,14 @@ export default function CategoryPage() {
                   editingId={editingId}
                   editName={editName}
                   editColor={editColor}
+                  editDescription={editDescription}
                   confirmDeleteId={confirmDeleteId}
                   onStartEdit={startEdit}
                   onSaveEdit={saveEdit}
                   onCancelEdit={() => setEditingId(null)}
                   onEditName={setEditName}
                   onEditColor={setEditColor}
+                  onEditDescription={setEditDescription}
                   onDelete={handleDelete}
                   onCancelDelete={() => setConfirmDeleteId(null)}
                 />
