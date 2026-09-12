@@ -68,5 +68,12 @@ commit;
 -- 마이그레이션 결과를 확인한 뒤 필요하면 나중에 직접 `drop table public.subtasks;`로 정리하세요.
 
 -- 4) 실시간 반영
-alter publication supabase_realtime add table public.subcategories;
+-- Supabase 프로젝트에 따라 새 테이블이 자동으로 publication에 포함되기도 해서,
+-- 이미 등록돼 있으면 에러 없이 넘어가도록 예외 처리
+do $$
+begin
+  alter publication supabase_realtime add table public.subcategories;
+exception when duplicate_object then
+  null;
+end $$;
 

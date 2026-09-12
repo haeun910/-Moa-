@@ -57,7 +57,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
 
   return (
     <div
-      className={`relative bg-white dark:bg-gray-900 rounded-2xl border mb-2 overflow-hidden transition-all duration-200 ${
+      className={`relative bg-white dark:bg-gray-900 rounded-xl border mb-1.5 overflow-hidden transition-all duration-200 ${
         showDelete
           ? 'border-gray-300 dark:border-gray-700 shadow-md'
           : 'border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-700'
@@ -73,7 +73,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
         />
       )}
 
-      <div className={`flex items-start gap-3 px-4 py-3.5 ${category ? 'pl-[18px]' : ''}`}>
+      <div className={`flex items-start gap-3 px-3.5 py-2.5 ${category ? 'pl-[16px]' : ''}`}>
         {/* Checkbox */}
         <button
           onClick={handleCheckboxClick}
@@ -159,9 +159,12 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
       </div>
 
       {/* Actions row: "오늘로"/"날짜"/"복사" 등 - 제목 줄에 끼워 넣으면 아이콘들과
-          비좁게 겹쳐서 위치가 애매했던 문제라, 아이콘 줄과 분리된 자기 줄로 내려서 배치함 */}
+          비좁게 겹쳐서 위치가 애매했던 문제라, 아이콘 줄과 분리된 자기 줄로 내려서 배치함.
+          목록이 너무 커 보이지 않도록 평소엔 접어두고 마우스 올렸을 때만 펼침 */}
       {actions && (
-        <div className={`flex flex-wrap items-center gap-1.5 px-4 pb-3 -mt-1 ${category ? 'pl-[18px]' : ''}`}>
+        <div className={`flex flex-wrap items-center gap-1.5 px-3.5 overflow-hidden transition-all duration-150 ${category ? 'pl-[16px]' : ''} ${
+          showDelete ? 'max-h-10 pb-2 opacity-100' : 'max-h-0 pb-0 opacity-0'
+        }`}>
           {actions}
         </div>
       )}
