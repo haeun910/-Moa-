@@ -1,19 +1,13 @@
-export interface SubTask {
-  id: string;
-  title: string;
-  completed: boolean;
-}
-
 export interface Todo {
   id: string;
   title: string;
   completed: boolean;
   categoryId: string | null;
+  subcategoryId: string | null; // 카테고리 하위의 그룹 (예: "프로젝트" 안의 "재가센터 관리앱")
   date: string | null; // ISO date string YYYY-MM-DD or null
   dueDate?: string | null; // 마감일(작업할 날짜 date와는 별개) YYYY-MM-DD or null
   isDday?: boolean; // 체크하면 홈 화면 D-Day 목록에도 자동으로 나타남 (dueDate 또는 date를 기준일로 사용)
   startTime?: string | null; // HH:MM
-  subtasks: SubTask[];
   createdAt: string;
   notes?: string;
 }
@@ -24,6 +18,12 @@ export interface Category {
   color: string;
   description?: string | null; // 저장소 화면에서만 노출되는 설명
   isDefault?: boolean;
+}
+
+export interface Subcategory {
+  id: string;
+  categoryId: string;
+  name: string;
 }
 
 export interface Note {

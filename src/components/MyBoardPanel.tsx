@@ -145,7 +145,7 @@ export default function MyBoardPanel({ onClose }: { onClose: () => void }) {
   const tomorrowTodos = todos.filter(t => t.date === tomorrowStr);
 
   async function add(title: string, date: string) {
-    await addTodo({ title, completed: false, categoryId: null, date, startTime: null, subtasks: [], notes: '' });
+    await addTodo({ title, completed: false, categoryId: null, subcategoryId: null, date, startTime: null, notes: '' });
   }
 
   return (

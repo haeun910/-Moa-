@@ -15,13 +15,24 @@ create table if not exists public.categories (
   created_at  timestamptz not null default now()
 );
 
--- 2. todos
+-- 2. subcategories (카테고리 하위의 그룹 - 예: "프로젝트" 카테고리 안의 "재가센터 관리앱")
+create table if not exists public.subcategories (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  category_id uuid not null references public.categories(id) on delete cascade,
+  name        text not null,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+-- 3. todos
 create table if not exists public.todos (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references auth.users(id) on delete cascade,
   title       text not null,
   completed   boolean not null default false,
   category_id uuid references public.categories(id) on delete set null,
+  subcategory_id uuid references public.subcategories(id) on delete set null,
   date        date,
   due_date    date,                          -- 작업할 날짜(date)와는 별개인 마감일
   is_dday     boolean not null default false, -- 체크하면 홈 화면 D-Day 목록에도 자동 노출
@@ -30,16 +41,6 @@ create table if not exists public.todos (
   sort_order  integer not null default 0,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
-);
-
--- 3. subtasks
-create table if not exists public.subtasks (
-  id          uuid primary key default gen_random_uuid(),
-  todo_id     uuid not null references public.todos(id) on delete cascade,
-  title       text not null,
-  completed   boolean not null default false,
-  sort_order  integer not null default 0,
-  created_at  timestamptz not null default now()
 );
 
 -- 4. notes
@@ -115,8 +116,8 @@ create or replace trigger on_auth_user_created
 -- Row Level Security (RLS) - 본인 데이터만 접근 가능
 -- ============================================================
 alter table public.categories    enable row level security;
+alter table public.subcategories enable row level security;
 alter table public.todos         enable row level security;
-alter table public.subtasks      enable row level security;
 alter table public.notes         enable row level security;
 alter table public.user_settings enable row level security;
 
@@ -124,19 +125,13 @@ alter table public.user_settings enable row level security;
 create policy "categories: own data" on public.categories
   for all using (auth.uid() = user_id);
 
+-- subcategories
+create policy "subcategories: own data" on public.subcategories
+  for all using (auth.uid() = user_id);
+
 -- todos
 create policy "todos: own data" on public.todos
   for all using (auth.uid() = user_id);
-
--- subtasks (todo 소유자만)
-create policy "subtasks: own data" on public.subtasks
-  for all using (
-    exists (
-      select 1 from public.todos
-      where todos.id = subtasks.todo_id
-        and todos.user_id = auth.uid()
-    )
-  );
 
 -- notes
 create policy "notes: own data" on public.notes
@@ -151,14 +146,15 @@ create policy "user_settings: own data" on public.user_settings
 -- ============================================================
 create index if not exists idx_todos_user_date       on public.todos(user_id, date);
 create index if not exists idx_todos_user_category   on public.todos(user_id, category_id);
-create index if not exists idx_subtasks_todo         on public.subtasks(todo_id);
+create index if not exists idx_todos_subcategory     on public.todos(subcategory_id);
 create index if not exists idx_notes_user            on public.notes(user_id, updated_at desc);
 create index if not exists idx_categories_user       on public.categories(user_id, sort_order);
+create index if not exists idx_subcategories_category on public.subcategories(category_id, sort_order);
 
 -- ============================================================
 -- Realtime 활성화
 -- ============================================================
 alter publication supabase_realtime add table public.todos;
-alter publication supabase_realtime add table public.subtasks;
 alter publication supabase_realtime add table public.categories;
+alter publication supabase_realtime add table public.subcategories;
 alter publication supabase_realtime add table public.notes;

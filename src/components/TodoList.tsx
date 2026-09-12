@@ -22,15 +22,11 @@ interface Props {
   todos: Todo[];
   onEdit: (todo: Todo) => void;
   getActions?: (todo: Todo) => React.ReactNode;
-  autoCompleteSubtasks?: boolean;
-  allowSendSubtaskToToday?: boolean;
   completeMovesToToday?: boolean;
-  // 저장소에서만: 할 일을 다른 할 일의 "가운데"에 끌어다 놓으면 세부 할일로 합쳐짐
-  enableMergeToSubtask?: boolean;
 }
 
-export default function TodoList({ todos, onEdit, getActions, autoCompleteSubtasks, allowSendSubtaskToToday, completeMovesToToday, enableMergeToSubtask }: Props) {
-  const { reorderTodos, updateTodo, deleteTodo } = useApp();
+export default function TodoList({ todos, onEdit, getActions, completeMovesToToday }: Props) {
+  const { reorderTodos } = useApp();
 
   // 드래그로 정렬한 순서를 컴포넌트 로컬 state(localOrder)에 따로 보관했었는데,
   // 그 뒤로 항목이 추가/변경돼도 이 로컬 state는 갱신되지 않아서 새 항목이 화면에서
@@ -44,25 +40,6 @@ export default function TodoList({ todos, onEdit, getActions, autoCompleteSubtas
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
-    if (enableMergeToSubtask) {
-      const activeTodo = todos.find(t => t.id === active.id);
-      const targetTodo = todos.find(t => t.id === over.id);
-      const activeRect = active.rect.current.translated;
-      if (activeTodo && targetTodo && activeRect && over.rect.height > 0) {
-        const relativeCenter = (activeRect.top + activeRect.height / 2 - over.rect.top) / over.rect.height;
-        if (relativeCenter > 0.25 && relativeCenter < 0.75) {
-          const mergedSubtasks = [
-            ...targetTodo.subtasks,
-            { id: `merge-${Date.now()}-title`, title: activeTodo.title, completed: activeTodo.completed },
-            ...activeTodo.subtasks.map((s, i) => ({ id: `merge-${Date.now()}-${i}`, title: s.title, completed: s.completed })),
-          ];
-          updateTodo(targetTodo.id, { subtasks: mergedSubtasks });
-          deleteTodo(activeTodo.id);
-          return;
-        }
-      }
-    }
 
     const ids = todos.map(t => t.id);
     const oldIndex = ids.indexOf(active.id as string);
@@ -80,7 +57,7 @@ export default function TodoList({ todos, onEdit, getActions, autoCompleteSubtas
     >
       <SortableContext items={todos.map(t => t.id)} strategy={verticalListSortingStrategy}>
         {todos.map(todo => (
-          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} autoCompleteSubtasks={autoCompleteSubtasks} allowSendSubtaskToToday={allowSendSubtaskToToday} completeMovesToToday={completeMovesToToday} />
+          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} completeMovesToToday={completeMovesToToday} />
         ))}
       </SortableContext>
     </DndContext>

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, CalendarCheck, CalendarDays, ListTodo, Package, Copy } from 'lucide-react';
+import { Plus, Send, CalendarCheck, CalendarDays, Package, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable,
@@ -9,18 +9,23 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { useApp } from '../context/AppContext';
 import { applyListDisplaySettings } from '../lib/listDisplay';
-import TodoList from '../components/TodoList';
 import SortableTodoItem from '../components/SortableTodoItem';
 import TodoModal from '../components/TodoModal';
 import CategoryFilter from '../components/CategoryFilter';
-import SubtaskMoveModal from '../components/SubtaskMoveModal';
 import type { Todo, Category } from '../types';
 
 const NO_CATEGORY_GROUP_ID = '__none__';
 
-// 카테고리 그룹 하나를 드롭 대상 영역으로 만듦.
-// (항목이 하나도 없는 빈 카테고리에도 다른 카테고리의 할 일을 끌어다 놓을 수 있어야 하므로 필요)
-function DroppableCategoryGroup({ id, children }: { id: string; children: React.ReactNode }) {
+interface TodoGroup {
+  id: string;
+  categoryId: string | null;
+  subcategoryId: string | null;
+  todos: Todo[];
+}
+
+// 그룹 하나(카테고리 자체 / 하위카테고리)를 드롭 대상 영역으로 만듦.
+// (항목이 하나도 없는 그룹에도 다른 곳의 할 일을 끌어다 놓을 수 있어야 하므로 필요)
+function DroppableGroup({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div ref={setNodeRef} className={`rounded-2xl transition-colors ${isOver ? 'bg-leaf-50/60 dark:bg-leaf-900/10 ring-2 ring-leaf-300 dark:ring-leaf-700' : ''}`}>
@@ -29,10 +34,26 @@ function DroppableCategoryGroup({ id, children }: { id: string; children: React.
   );
 }
 
+function TodoGroupList({ group, onEdit, actions }: { group: TodoGroup; onEdit: (todo: Todo) => void; actions: (todo: Todo) => React.ReactNode }) {
+  return (
+    <DroppableGroup id={group.id}>
+      <SortableContext id={group.id} items={group.todos.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        {group.todos.length > 0 ? (
+          group.todos.map(todo => (
+            <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={actions(todo)} completeMovesToToday />
+          ))
+        ) : (
+          <div className="h-3" />
+        )}
+      </SortableContext>
+    </DroppableGroup>
+  );
+}
+
 // 지난 날짜를 포함해 원하는 날짜로 바로 보낼 수 있는 버튼.
 // ("오늘로"는 오늘 날짜 전용이라 지나간 날짜에 등록하려면 상세 편집을 열어야 했음)
 function SendToDateButton({ todo }: { todo: Todo }) {
-  const { updateTodo, moveSubtasksToDate } = useApp();
+  const { updateTodo } = useApp();
   const [open, setOpen] = useState(false);
 
   return (
@@ -52,12 +73,7 @@ function SendToDateButton({ todo }: { todo: Todo }) {
           defaultValue={todo.date ?? ''}
           className="absolute right-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-400"
           onChange={e => {
-            const value = e.target.value;
-            if (value) {
-              // 하위 항목이 있으면 큰 제목(카테고리)은 저장소에 남기고 하위 항목만 그 날짜로 보냄
-              if (todo.subtasks.length > 0) moveSubtasksToDate(todo.id, todo.subtasks.map(s => s.id), value);
-              else updateTodo(todo.id, { date: value });
-            }
+            if (e.target.value) updateTodo(todo.id, { date: e.target.value });
             setOpen(false);
           }}
           onBlur={() => setOpen(false)}
@@ -67,7 +83,7 @@ function SendToDateButton({ todo }: { todo: Todo }) {
   );
 }
 
-function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; onAdd: (title: string, catId: string | null) => Promise<void> }) {
+function CategoryQuickAdd({ categoryId, subcategoryId, onAdd }: { categoryId: string | null; subcategoryId: string | null; onAdd: (title: string, catId: string | null, subcatId: string | null) => Promise<void> }) {
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
@@ -76,7 +92,7 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
     const t = title.trim();
     if (!t || loading) return;
     setLoading(true);
-    try { await onAdd(t, categoryId); setTitle(''); ref.current?.focus(); }
+    try { await onAdd(t, categoryId, subcategoryId); setTitle(''); ref.current?.focus(); }
     finally { setLoading(false); }
   }
 
@@ -101,8 +117,54 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
   );
 }
 
+// 카테고리 하나에 하위카테고리를 빠르게 추가하는 인라인 컨트롤
+// (본격적인 이름 변경/삭제/순서는 설정 > 카테고리 관리에서)
+function AddSubcategoryInline({ categoryId }: { categoryId: string }) {
+  const { addSubcategory } = useApp();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+
+  async function submit() {
+    const t = name.trim();
+    if (!t) { setAdding(false); return; }
+    await addSubcategory(categoryId, t);
+    setName('');
+    setAdding(false);
+  }
+
+  if (!adding) {
+    return (
+      <button
+        onClick={() => setAdding(true)}
+        className="mt-1 flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors px-1"
+      >
+        <Plus size={11} />
+        하위카테고리 추가
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1 px-1">
+      <input
+        autoFocus
+        type="text"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="하위카테고리 이름"
+        onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setAdding(false); }}
+        onBlur={() => { if (!name.trim()) setAdding(false); }}
+        className="text-xs px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+      />
+      <button onClick={submit} className="w-6 h-6 rounded-md bg-leaf-300 text-leaf-800 flex items-center justify-center flex-shrink-0">
+        <Check size={12} />
+      </button>
+    </div>
+  );
+}
+
 export default function AllTodosPage() {
-  const { todos: allTodos, categories, settings, addTodo, updateTodo, deleteTodo, reorderTodos, moveSubtasksToDate } = useApp();
+  const { todos: allTodos, categories, subcategories, settings, addTodo, updateTodo, reorderTodos } = useApp();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // 저장소 = 날짜 없이 보관 중인 할 일만 (날짜가 정해지면 저장소에서는 사라져야 함)
@@ -112,12 +174,10 @@ export default function AllTodosPage() {
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
-  const [subtaskMoveTodo, setSubtaskMoveTodo] = useState<Todo | undefined>();
   const [quickTitle, setQuickTitle] = useState('');
   const [quickLoading, setQuickLoading] = useState(false);
   const quickInputRef = useRef<HTMLInputElement>(null);
 
-  // 이 아래 조건부 return(단일 카테고리 보기) 때문에 훅은 항상 그 이전, 최상단에서 호출돼야 함
   const groupSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -131,37 +191,29 @@ export default function AllTodosPage() {
     if (!title || quickLoading) return;
     setQuickLoading(true);
     try {
-      await addTodo({ title, completed: false, categoryId: activeCatId, date: null, startTime: null, subtasks: [], notes: '' });
+      await addTodo({ title, completed: false, categoryId: activeCatId, subcategoryId: null, date: null, startTime: null, notes: '' });
       setQuickTitle('');
       quickInputRef.current?.focus();
     } finally { setQuickLoading(false); }
   }
 
-  async function addToCategoryGroup(title: string, catId: string | null) {
-    await addTodo({ title, completed: false, categoryId: catId, date: null, startTime: null, subtasks: [], notes: '' });
+  async function addToCategoryGroup(title: string, catId: string | null, subcatId: string | null) {
+    await addTodo({ title, completed: false, categoryId: catId, subcategoryId: subcatId, date: null, startTime: null, notes: '' });
   }
 
   async function sendToToday(todo: Todo) {
-    // 하위 항목이 있는 큰 제목은 그 자체가 할 일이 아니라 카테고리 같은 컨테이너라서
-    // 통째로 옮기지 않고, 하위 항목들만 오늘로 보냄(저장소엔 큰 제목 그대로 남음).
-    // 하위 항목이 없는(그 자체가 그냥 할 일인) 경우에만 항목 자체를 오늘로 옮김.
-    if (todo.subtasks.length > 0) {
-      await moveSubtasksToDate(todo.id, todo.subtasks.map(s => s.id), todayStr);
-    } else {
-      await updateTodo(todo.id, { date: todayStr });
-    }
+    await updateTodo(todo.id, { date: todayStr });
   }
 
-  // 비슷한 할 일을 매번 새로 입력하지 않도록, 기존 할 일(제목+카테고리+하위 항목)을
-  // 그대로 복제해서 저장소에 새 항목으로 추가 (완료 여부/날짜는 새로 시작)
+  // 비슷한 할 일을 매번 새로 입력하지 않도록, 기존 할 일을 그대로 복제해서 저장소에 새 항목으로 추가
   async function duplicateTodo(todo: Todo) {
     await addTodo({
       title: todo.title,
       completed: false,
       categoryId: todo.categoryId,
+      subcategoryId: todo.subcategoryId,
       date: null,
       startTime: todo.startTime ?? null,
-      subtasks: todo.subtasks.map((s, i) => ({ id: `dup-${Date.now()}-${i}`, title: s.title, completed: false })),
       notes: todo.notes ?? '',
     });
   }
@@ -172,7 +224,7 @@ export default function AllTodosPage() {
         <button
           onClick={e => { e.stopPropagation(); sendToToday(todo); }}
           className="flex items-center gap-1 text-[10px] font-semibold text-leaf-600 hover:text-leaf-800 dark:text-leaf-400 dark:hover:text-leaf-200 bg-leaf-50 hover:bg-leaf-300 dark:bg-leaf-900/30 dark:hover:bg-leaf-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-          title="이 할 일(세부 할일 포함) 전체를 오늘 날짜로 이동"
+          title="오늘 날짜로 이동"
         >
           <CalendarCheck size={11} />
           오늘로
@@ -181,21 +233,11 @@ export default function AllTodosPage() {
         <button
           onClick={e => { e.stopPropagation(); duplicateTodo(todo); }}
           className="flex items-center gap-1 text-[10px] font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-100 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-          title="이 할 일(세부 할일 포함)을 복사해서 새로 추가"
+          title="복사해서 새로 추가"
         >
           <Copy size={11} />
           복사
         </button>
-        {todo.subtasks.length > 0 && (
-          <button
-            onClick={e => { e.stopPropagation(); setSubtaskMoveTodo(todo); }}
-            className="flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-white bg-violet-50 hover:bg-violet-500 dark:bg-violet-900/30 dark:hover:bg-violet-500 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-            title="세부 할일 중 원하는 것만 골라서 오늘로 이동"
-          >
-            <ListTodo size={11} />
-            하위 선택
-          </button>
-        )}
       </>
     );
   }
@@ -203,36 +245,126 @@ export default function AllTodosPage() {
   const repoTodoCount = todos.length;
   const completedCount = todos.filter(t => t.completed).length;
 
+  // ── 그룹 구성 헬퍼 ──────────────────────────────────────────
+  function subcatGroupsOf(catId: string) {
+    return subcategories
+      .filter(sc => sc.categoryId === catId)
+      .map(sc => ({
+        subcat: sc,
+        group: { id: `subcat-${sc.id}`, categoryId: catId, subcategoryId: sc.id, todos: todos.filter(t => t.subcategoryId === sc.id) } as TodoGroup,
+      }));
+  }
+  function bareGroupOf(catId: string): TodoGroup {
+    return { id: `cat-${catId}`, categoryId: catId, subcategoryId: null, todos: todos.filter(t => t.categoryId === catId && !t.subcategoryId) };
+  }
+  const noCategoryGroup: TodoGroup = { id: NO_CATEGORY_GROUP_ID, categoryId: null, subcategoryId: null, todos: todos.filter(t => !t.categoryId) };
+
+  function findGroupById(id: string): TodoGroup | undefined {
+    if (id === NO_CATEGORY_GROUP_ID) return noCategoryGroup;
+    if (id.startsWith('subcat-')) {
+      const sc = subcategories.find(s => s.id === id.slice('subcat-'.length));
+      if (!sc) return undefined;
+      return { id, categoryId: sc.categoryId, subcategoryId: sc.id, todos: todos.filter(t => t.subcategoryId === sc.id) };
+    }
+    if (id.startsWith('cat-')) {
+      const catId = id.slice('cat-'.length);
+      return { id, categoryId: catId, subcategoryId: null, todos: todos.filter(t => t.categoryId === catId && !t.subcategoryId) };
+    }
+    return undefined;
+  }
+
+  // 그룹(카테고리 자체 / 하위카테고리) 사이를 넘나드는 드래그앤드롭 처리.
+  function handleGroupDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
+    const activeTodo = todos.find(t => t.id === active.id);
+    if (!activeTodo) return;
+
+    type SortableData = { sortable?: { containerId: string } };
+    const activeGroupId =
+      (active.data.current as SortableData | undefined)?.sortable?.containerId
+      ?? (activeTodo.subcategoryId ? `subcat-${activeTodo.subcategoryId}` : activeTodo.categoryId ? `cat-${activeTodo.categoryId}` : NO_CATEGORY_GROUP_ID);
+    const overGroupId =
+      (over.data.current as SortableData | undefined)?.sortable?.containerId
+      ?? (over.id as string);
+
+    if (activeGroupId !== overGroupId) {
+      // 다른 그룹(카테고리/하위카테고리) 위에 놓음 → 소속 변경
+      const targetGroup = findGroupById(overGroupId);
+      if (!targetGroup) return;
+      updateTodo(activeTodo.id, { categoryId: targetGroup.categoryId, subcategoryId: targetGroup.subcategoryId });
+      return;
+    }
+
+    // 같은 그룹 안에서는 순서만 변경
+    if (active.id === over.id) return;
+    const group = findGroupById(activeGroupId);
+    if (!group) return;
+    const ids = group.todos.map(t => t.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    reorderTodos(arrayMove(ids, oldIndex, newIndex));
+  }
+
+  function renderCategoryBlock(cat: Category) {
+    const subGroups = subcatGroupsOf(cat.id);
+    const bare = bareGroupOf(cat.id);
+    const totalCount = bare.todos.length + subGroups.reduce((n, { group }) => n + group.todos.length, 0);
+    return (
+      <div key={cat.id} className="mb-6">
+        <div className="mb-2.5 px-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
+            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{totalCount}</span>
+          </div>
+          {/* 카테고리 설명은 저장소 화면에서만 노출 */}
+          {cat.description && (
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{cat.description}</p>
+          )}
+        </div>
+
+        {subGroups.length === 0 ? (
+          <TodoGroupList group={bare} onEdit={openEdit} actions={getTodoActions} />
+        ) : (
+          <>
+            {bare.todos.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1 px-1">분류 없음</p>
+                <TodoGroupList group={bare} onEdit={openEdit} actions={getTodoActions} />
+              </div>
+            )}
+            {subGroups.map(({ subcat, group }) => (
+              <div key={subcat.id} className="mb-3 pl-3 border-l-2 border-gray-100 dark:border-gray-800">
+                <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-1 px-1">{subcat.name}</p>
+                <TodoGroupList group={group} onEdit={openEdit} actions={getTodoActions} />
+              </div>
+            ))}
+          </>
+        )}
+
+        <CategoryQuickAdd categoryId={cat.id} subcategoryId={null} onAdd={addToCategoryGroup} />
+        <AddSubcategoryInline categoryId={cat.id} />
+      </div>
+    );
+  }
+
   if (activeCatId !== null) {
-    const filtered = todos.filter(t => t.categoryId === activeCatId);
     const cat = categories.find(c => c.id === activeCatId);
+    const filteredCount = todos.filter(t => t.categoryId === activeCatId).length;
 
     return (
-      <div className="max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 lg:px-8 pt-10 pb-36">
+      <div className="max-w-3xl mx-auto px-4 lg:px-8 pt-10 pb-36">
         <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">저장소</h1>
           <p className="text-sm text-gray-400 mt-0.5">{repoTodoCount}개 · 완료 {completedCount}개</p>
         </div>
-        <div className="mb-2">
+        <div className="mb-4">
           <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
         </div>
-        <p className="text-[11px] text-gray-400 dark:text-gray-600 mb-3">
-          💡 할 일을 다른 할 일 가운데로 끌어다 놓으면 세부 할일로 합쳐져요
-        </p>
-        {cat && (
-          <div className="mb-3 px-1">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{cat.name}</span>
-              <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{filtered.length}</span>
-            </div>
-            {/* 카테고리 설명은 저장소 화면에서만 노출 */}
-            {cat.description && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{cat.description}</p>
-            )}
-          </div>
-        )}
-        {filtered.length === 0 ? (
+
+        {filteredCount === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-3">
               <Package size={24} className="text-gray-400" />
@@ -240,10 +372,12 @@ export default function AllTodosPage() {
             <p className="text-sm font-medium text-gray-500">이 카테고리에 할 일이 없어요</p>
           </div>
         ) : (
-          <TodoList todos={filtered} onEdit={openEdit} getActions={getTodoActions} allowSendSubtaskToToday completeMovesToToday enableMergeToSubtask />
+          <DndContext sensors={groupSensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]} onDragEnd={handleGroupDragEnd}>
+            {cat && renderCategoryBlock(cat)}
+          </DndContext>
         )}
 
-        <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 lg:px-8 pb-3 max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto">
+        <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 lg:px-8 pb-3 max-w-3xl mx-auto">
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
             <input ref={quickInputRef} type="text" value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
@@ -260,78 +394,12 @@ export default function AllTodosPage() {
             </button>
           </div>
         </div>
-        {showModal && <TodoModal todo={editTodo} onClose={closeModal} />}
-        {subtaskMoveTodo && <SubtaskMoveModal todo={subtaskMoveTodo} onClose={() => setSubtaskMoveTodo(undefined)} />}
+        {showModal && <TodoModal todo={editTodo} defaultCategoryId={activeCatId} onClose={closeModal} />}
       </div>
     );
   }
 
-  const catGroups: { cat: Category | null; catTodos: Todo[] }[] = [
-    ...categories.map(cat => ({
-      cat,
-      catTodos: todos.filter(t => t.categoryId === cat.id),
-    })),
-    {
-      cat: null,
-      catTodos: todos.filter(t => !t.categoryId),
-    },
-  ].filter(g => g.catTodos.length > 0 || g.cat !== null);
-
-  // 카테고리 그룹 사이를 넘나드는 드래그앤드롭 처리.
-  // (예전엔 카테고리 그룹마다 TodoList가 각자의 DndContext를 따로 갖고 있어서
-  //  같은 그룹 안에서 순서만 바꿀 수 있었고, 다른 카테고리로 끌어다 놓는 건 아예 불가능했음)
-  function handleGroupDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over) return;
-    const activeTodo = todos.find(t => t.id === active.id);
-    if (!activeTodo) return;
-
-    // 다른 할 일의 "가운데"(위/아래 가장자리가 아닌 부분)에 놓으면 순서 변경이 아니라
-    // 그 할 일의 하위 항목으로 합쳐짐 (끌어서 하위 항목 추가)
-    if (over.id !== active.id) {
-      const targetTodo = todos.find(t => t.id === over.id);
-      const activeRect = active.rect.current.translated;
-      if (targetTodo && activeRect && over.rect.height > 0) {
-        const relativeCenter = (activeRect.top + activeRect.height / 2 - over.rect.top) / over.rect.height;
-        const droppedOnMiddle = relativeCenter > 0.25 && relativeCenter < 0.75;
-        if (droppedOnMiddle) {
-          const mergedSubtasks = [
-            ...targetTodo.subtasks,
-            { id: `merge-${Date.now()}-title`, title: activeTodo.title, completed: activeTodo.completed },
-            ...activeTodo.subtasks.map((s, i) => ({ id: `merge-${Date.now()}-${i}`, title: s.title, completed: s.completed })),
-          ];
-          updateTodo(targetTodo.id, { subtasks: mergedSubtasks });
-          deleteTodo(activeTodo.id);
-          return;
-        }
-      }
-    }
-
-    type SortableData = { sortable?: { containerId: string } };
-    const activeContainerId =
-      (active.data.current as SortableData | undefined)?.sortable?.containerId
-      ?? (activeTodo.categoryId ?? NO_CATEGORY_GROUP_ID);
-    const overContainerId =
-      (over.data.current as SortableData | undefined)?.sortable?.containerId
-      ?? (over.id as string);
-
-    if (activeContainerId !== overContainerId) {
-      // 다른 카테고리 그룹 위에 놓음 → 카테고리 변경
-      const targetCatId = overContainerId === NO_CATEGORY_GROUP_ID ? null : overContainerId;
-      updateTodo(activeTodo.id, { categoryId: targetCatId });
-      return;
-    }
-
-    // 같은 그룹 안에서는 순서만 변경
-    if (active.id === over.id) return;
-    const group = catGroups.find(g => (g.cat?.id ?? NO_CATEGORY_GROUP_ID) === activeContainerId);
-    if (!group) return;
-    const ids = group.catTodos.map(t => t.id);
-    const oldIndex = ids.indexOf(active.id as string);
-    const newIndex = ids.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-    reorderTodos(arrayMove(ids, oldIndex, newIndex));
-  }
+  const isEmpty = categories.length === 0 && noCategoryGroup.todos.length === 0;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-8 pt-10 pb-36">
@@ -356,14 +424,11 @@ export default function AllTodosPage() {
         )}
       </div>
 
-      <div className="mb-2">
+      <div className="mb-5">
         <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
       </div>
-      <p className="text-[11px] text-gray-400 dark:text-gray-600 mb-3">
-        💡 할 일을 다른 할 일 가운데로 끌어다 놓으면 세부 할일로 합쳐져요
-      </p>
 
-      {catGroups.length === 0 && (
+      {isEmpty && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-16 h-16 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
             <Package size={28} className="text-gray-300 dark:text-gray-600" />
@@ -379,50 +444,23 @@ export default function AllTodosPage() {
         modifiers={[restrictToVerticalAxis]}
         onDragEnd={handleGroupDragEnd}
       >
-        {/* 요청에 따라 2단 그리드를 없애고 1단으로 통일 (넓은 화면에서도 카테고리 그룹을 위아래로만 쌓음) */}
         <div>
-          {catGroups.map(({ cat, catTodos }) => {
-            const groupId = cat?.id ?? NO_CATEGORY_GROUP_ID;
-            return (
-              <div key={groupId} className="mb-6">
-                <div className="mb-2.5 px-1">
-                  <div className="flex items-center gap-2">
-                    {cat ? (
-                      <>
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
-                      </>
-                    ) : (
-                      <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
-                    )}
-                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{catTodos.length}</span>
-                  </div>
-                  {/* 카테고리 설명은 저장소 화면에서만 노출 */}
-                  {cat?.description && (
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{cat.description}</p>
-                  )}
-                </div>
-
-                <DroppableCategoryGroup id={groupId}>
-                  <SortableContext id={groupId} items={catTodos.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                    {catTodos.length > 0 ? (
-                      catTodos.map(todo => (
-                        <SortableTodoItem key={todo.id} todo={todo} onEdit={openEdit} actions={getTodoActions(todo)} allowSendSubtaskToToday completeMovesToToday />
-                      ))
-                    ) : (
-                      <div className="h-3" />
-                    )}
-                  </SortableContext>
-                </DroppableCategoryGroup>
-                <CategoryQuickAdd categoryId={cat?.id ?? null} onAdd={addToCategoryGroup} />
+          {categories.map(renderCategoryBlock)}
+          {noCategoryGroup.todos.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-2.5 px-1">
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
+                <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{noCategoryGroup.todos.length}</span>
               </div>
-            );
-          })}
+              <TodoGroupList group={noCategoryGroup} onEdit={openEdit} actions={getTodoActions} />
+              <CategoryQuickAdd categoryId={null} subcategoryId={null} onAdd={addToCategoryGroup} />
+            </div>
+          )}
         </div>
       </DndContext>
 
-      {catGroups.length === 0 && (
-        <CategoryQuickAdd categoryId={null} onAdd={addToCategoryGroup} />
+      {categories.length === 0 && noCategoryGroup.todos.length === 0 && (
+        <CategoryQuickAdd categoryId={null} subcategoryId={null} onAdd={addToCategoryGroup} />
       )}
 
       <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 lg:px-8 pb-3 max-w-3xl mx-auto">
@@ -444,7 +482,6 @@ export default function AllTodosPage() {
       </div>
 
       {showModal && <TodoModal todo={editTodo} onClose={closeModal} />}
-      {subtaskMoveTodo && <SubtaskMoveModal todo={subtaskMoveTodo} onClose={() => setSubtaskMoveTodo(undefined)} />}
     </div>
   );
 }

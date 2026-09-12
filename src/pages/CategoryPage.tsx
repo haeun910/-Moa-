@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, X, ChevronLeft, Check, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, ChevronLeft, ChevronDown, ChevronUp, Check, GripVertical, Layers } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -10,6 +10,95 @@ import { CSS } from '@dnd-kit/utilities';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { useApp } from '../context/AppContext';
 import type { Category } from '../types';
+
+// 카테고리 하나의 하위카테고리 목록을 이름 변경/삭제/추가할 수 있게 관리.
+// (순서는 만든 순서 그대로 - 드래그 재정렬은 지원하지 않음)
+function SubcategoryManager({ categoryId }: { categoryId: string }) {
+  const { subcategories, addSubcategory, updateSubcategory, deleteSubcategory } = useApp();
+  const list = subcategories.filter(s => s.categoryId === categoryId);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+
+  function startEdit(id: string, name: string) { setEditingId(id); setEditName(name); }
+  async function saveEdit() {
+    if (editingId && editName.trim()) await updateSubcategory(editingId, { name: editName.trim() });
+    setEditingId(null);
+  }
+  async function handleAdd() {
+    const name = newName.trim();
+    if (!name) { setAdding(false); return; }
+    await addSubcategory(categoryId, name);
+    setNewName(''); setAdding(false);
+  }
+
+  return (
+    <div className="pl-9 pr-2 pb-3 space-y-1.5">
+      {list.length === 0 && !adding && (
+        <p className="text-xs text-gray-400 dark:text-gray-600 py-1">하위카테고리가 없어요</p>
+      )}
+      {list.map(sc => (
+        <div key={sc.id} className="flex items-center gap-2 py-1">
+          {editingId === sc.id ? (
+            <>
+              <input
+                autoFocus
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                onBlur={saveEdit}
+                className="flex-1 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+              />
+            </>
+          ) : (
+            <>
+              <span className="flex-1 text-sm text-gray-600 dark:text-gray-300 truncate">{sc.name}</span>
+              <button onClick={() => startEdit(sc.id, sc.name)} aria-label={`${sc.name} 이름 변경`}
+                className="text-gray-400 hover:text-leaf-500 transition-colors p-1">
+                <Edit2 size={12} />
+              </button>
+              {confirmDeleteId === sc.id ? (
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] px-1.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
+                  <button onClick={() => { deleteSubcategory(sc.id); setConfirmDeleteId(null); }} className="text-[10px] px-1.5 py-1 rounded-md bg-red-500 text-white font-medium">삭제</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDeleteId(sc.id)} aria-label={`${sc.name} 삭제`}
+                  className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+      {adding ? (
+        <div className="flex items-center gap-2 py-1">
+          <input
+            autoFocus
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder="하위카테고리 이름"
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false); }}
+            onBlur={() => { if (!newName.trim()) setAdding(false); }}
+            className="flex-1 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+          />
+          <button onClick={handleAdd} className="w-7 h-7 rounded-lg bg-leaf-300 text-leaf-800 flex items-center justify-center flex-shrink-0">
+            <Check size={13} />
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)}
+          className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors pt-0.5">
+          <Plus size={12} />
+          하위카테고리 추가
+        </button>
+      )}
+    </div>
+  );
+}
 
 // 색상 종류를 10개 → 20개로 확장 (요청: "카테고리 색상 더 다양하게, 총 20가지 정도")
 const PRESET_COLORS = [
@@ -40,15 +129,19 @@ function SortableCategoryItem({
   cat, editingId, editName, editColor, editDescription, confirmDeleteId,
   onStartEdit, onSaveEdit, onCancelEdit, onEditName, onEditColor, onEditDescription, onDelete, onCancelDelete,
 }: ItemProps) {
+  const { subcategories } = useApp();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [showSubcats, setShowSubcats] = useState(false);
+  const subcatCount = subcategories.filter(s => s.categoryId === cat.id).length;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0 bg-white dark:bg-gray-900 ${isDragging ? 'opacity-50 shadow-lg z-50' : ''}`}
+      className={`border-b border-gray-100 dark:border-gray-800 last:border-b-0 bg-white dark:bg-gray-900 ${isDragging ? 'opacity-50 shadow-lg z-50' : ''}`}
     >
+    <div className="px-4 py-3">
       {editingId === cat.id ? (
         <div className="space-y-3">
           <input value={editName} onChange={e => onEditName(e.target.value)}
@@ -95,6 +188,13 @@ function SortableCategoryItem({
           {cat.isDefault && (
             <span className="text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md">기본</span>
           )}
+          <button onClick={() => setShowSubcats(v => !v)} aria-label="하위카테고리 관리"
+            title="하위카테고리 관리"
+            className="flex items-center gap-0.5 text-gray-400 hover:text-leaf-500 transition-colors p-1">
+            <Layers size={13} />
+            {subcatCount > 0 && <span className="text-[10px] font-semibold">{subcatCount}</span>}
+            {showSubcats ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
           <button onClick={() => { onStartEdit(cat.id); onCancelDelete(); }} aria-label={`${cat.name} 편집`}
             className="text-gray-400 hover:text-leaf-500 transition-colors p-1">
             <Edit2 size={14} />
@@ -114,6 +214,8 @@ function SortableCategoryItem({
           )}
         </div>
       )}
+    </div>
+    {showSubcats && editingId !== cat.id && <SubcategoryManager categoryId={cat.id} />}
     </div>
   );
 }
