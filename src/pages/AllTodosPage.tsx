@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, CalendarCheck, CalendarDays, Package, Copy, Check } from 'lucide-react';
+import { Plus, Send, CalendarCheck, CalendarDays, Package, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable,
@@ -12,7 +12,7 @@ import { applyListDisplaySettings } from '../lib/listDisplay';
 import SortableTodoItem from '../components/SortableTodoItem';
 import TodoModal from '../components/TodoModal';
 import CategoryFilter from '../components/CategoryFilter';
-import type { Todo, Category } from '../types';
+import type { Todo, Category, Subcategory } from '../types';
 
 const NO_CATEGORY_GROUP_ID = '__none__';
 
@@ -47,6 +47,34 @@ function TodoGroupList({ group, onEdit, actions }: { group: TodoGroup; onEdit: (
         )}
       </SortableContext>
     </DroppableGroup>
+  );
+}
+
+// 하위카테고리 하나: 접었다 펼 수 있고, 그 안에 바로 할 일을 입력할 수 있음
+function SubcategorySection({
+  subcat, group, onEdit, actions, onAdd,
+}: {
+  subcat: Subcategory;
+  group: TodoGroup;
+  onEdit: (todo: Todo) => void;
+  actions: (todo: Todo) => React.ReactNode;
+  onAdd: (title: string, catId: string | null, subcatId: string | null) => Promise<void>;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="mb-3 pl-3 border-l-2 border-gray-100 dark:border-gray-800">
+      <button onClick={() => setCollapsed(v => !v)} className="flex items-center gap-1.5 mb-1.5 px-1 hover:opacity-70 transition-opacity">
+        {collapsed ? <ChevronRight size={13} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={13} className="text-gray-400 flex-shrink-0" />}
+        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{subcat.name}</span>
+        <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{group.todos.length}</span>
+      </button>
+      {!collapsed && (
+        <>
+          <TodoGroupList group={group} onEdit={onEdit} actions={actions} />
+          <CategoryQuickAdd categoryId={group.categoryId} subcategoryId={group.subcategoryId} onAdd={onAdd} />
+        </>
+      )}
+    </div>
   );
 }
 
@@ -312,16 +340,16 @@ export default function AllTodosPage() {
     const bare = bareGroupOf(cat.id);
     const totalCount = bare.todos.length + subGroups.reduce((n, { group }) => n + group.todos.length, 0);
     return (
-      <div key={cat.id} className="mb-6">
-        <div className="mb-2.5 px-1">
+      <div key={cat.id} className="mb-7">
+        <div className="mb-3 px-1">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
-            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{totalCount}</span>
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+            <span className="text-sm font-bold text-gray-700 dark:text-gray-200 tracking-wide">{cat.name}</span>
+            <span className="text-[11px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{totalCount}</span>
           </div>
           {/* 카테고리 설명은 저장소 화면에서만 노출 */}
           {cat.description && (
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{cat.description}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{cat.description}</p>
           )}
         </div>
 
@@ -331,15 +359,12 @@ export default function AllTodosPage() {
           <>
             {bare.todos.length > 0 && (
               <div className="mb-3">
-                <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-1 px-1">분류 없음</p>
+                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 mb-1.5 px-1">분류 없음</p>
                 <TodoGroupList group={bare} onEdit={openEdit} actions={getTodoActions} />
               </div>
             )}
             {subGroups.map(({ subcat, group }) => (
-              <div key={subcat.id} className="mb-3 pl-3 border-l-2 border-gray-100 dark:border-gray-800">
-                <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-1 px-1">{subcat.name}</p>
-                <TodoGroupList group={group} onEdit={openEdit} actions={getTodoActions} />
-              </div>
+              <SubcategorySection key={subcat.id} subcat={subcat} group={group} onEdit={openEdit} actions={getTodoActions} onAdd={addToCategoryGroup} />
             ))}
           </>
         )}
@@ -448,9 +473,9 @@ export default function AllTodosPage() {
           {categories.map(renderCategoryBlock)}
           {noCategoryGroup.todos.length > 0 && (
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-2.5 px-1">
-                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
-                <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{noCategoryGroup.todos.length}</span>
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 tracking-wide">분류 없음</span>
+                <span className="text-[11px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{noCategoryGroup.todos.length}</span>
               </div>
               <TodoGroupList group={noCategoryGroup} onEdit={openEdit} actions={getTodoActions} />
               <CategoryQuickAdd categoryId={null} subcategoryId={null} onAdd={addToCategoryGroup} />
