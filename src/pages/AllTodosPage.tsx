@@ -8,6 +8,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { useApp } from '../context/AppContext';
+import { applyListDisplaySettings } from '../lib/listDisplay';
 import TodoList from '../components/TodoList';
 import SortableTodoItem from '../components/SortableTodoItem';
 import TodoModal from '../components/TodoModal';
@@ -101,11 +102,12 @@ function CategoryQuickAdd({ categoryId, onAdd }: { categoryId: string | null; on
 }
 
 export default function AllTodosPage() {
-  const { todos: allTodos, categories, addTodo, updateTodo, deleteTodo, reorderTodos, moveSubtasksToDate } = useApp();
+  const { todos: allTodos, categories, settings, addTodo, updateTodo, deleteTodo, reorderTodos, moveSubtasksToDate } = useApp();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // 저장소 = 날짜 없이 보관 중인 할 일만 (날짜가 정해지면 저장소에서는 사라져야 함)
-  const todos = allTodos.filter(t => !t.date);
+  // + 설정의 "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부) 적용
+  const todos = applyListDisplaySettings(allTodos.filter(t => !t.date), settings);
 
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);

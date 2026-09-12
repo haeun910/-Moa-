@@ -13,6 +13,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import { applyListDisplaySettings } from '../lib/listDisplay';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
 import type { Todo, DDay } from '../types';
@@ -48,7 +49,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
 
 export default function TodayPage() {
   const {
-    todos, categories, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
+    todos, categories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
     ddays, deleteDDay, notices, setCurrentScreen,
   } = useApp();
@@ -96,7 +97,9 @@ export default function TodayPage() {
   });
   const weekCount = Math.ceil(days.length / 7);
 
-  const selectedTodos = todos.filter(t => t.date === selectedDate);
+  // 달력 칸/D-Day 계산은 전체 todos를 그대로 쓰고, 아래 목록(패널)에만 설정의
+  // "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부)을 적용
+  const selectedTodos = applyListDisplaySettings(todos.filter(t => t.date === selectedDate), settings);
 
   // 선택한 날의 할 일을 카테고리별로 묶어서 목록 사이에 카테고리 이름이 끼어들도록 함
   const dayGroups = [
@@ -416,14 +419,20 @@ export default function TodayPage() {
                       }`}>
                         {format(day, 'd')}
                       </span>
-                      <div className="w-full space-y-0.5 overflow-hidden">
-                        {dayTodos.slice(0, 2).map(t => (
-                          <div key={t.id} className={`w-full text-[10px] md:text-[9px] leading-tight px-1 py-0.5 rounded truncate ${
-                            t.completed ? 'bg-gray-100 dark:bg-gray-800 text-gray-400'
-                            : 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-700 dark:text-leaf-300'
-                          }`}>{t.title}</div>
-                        ))}
-                        {dayTodos.length > 2 && <div className="text-[10px] md:text-[9px] text-gray-400 pl-0.5">+{dayTodos.length - 2}</div>}
+                      {/* 제목을 텍스트로 나열하면 칸 높이가 날마다 들쭉날쭉해지는 문제가 있어서,
+                          칸 높이는 고정하고 그 날 있는 카테고리를 작은 색깔 점으로만 표시. 자세한
+                          목록은 칸을 눌러 오른쪽(또는 아래) 패널에서 확인 */}
+                      <div className="w-full flex flex-wrap gap-1 overflow-hidden">
+                        {Array.from(new Set(dayTodos.map(t => t.categoryId))).slice(0, 8).map(catId => {
+                          const cat = categories.find(c => c.id === catId);
+                          return (
+                            <span
+                              key={catId ?? '__none__'}
+                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: cat?.color ?? '#9CA3AF' }}
+                            />
+                          );
+                        })}
                       </div>
                       {ddayPopoverDate === dateStr && (
                         <div

@@ -102,6 +102,9 @@ export interface DbSettings {
   theme: 'light' | 'dark' | 'system';
   default_screen: 'today' | 'calendar' | 'all' | 'notes';
   notifications: boolean;
+  list_sort_by: 'manual' | 'date' | 'name';
+  hide_completed: boolean;
+  hidden_category_ids: string[];
   updated_at: string;
 }
 

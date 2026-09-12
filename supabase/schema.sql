@@ -58,6 +58,9 @@ create table if not exists public.user_settings (
   theme           text not null default 'system',
   default_screen  text not null default 'today',
   notifications   boolean not null default false,
+  list_sort_by    text not null default 'manual',   -- 'manual' | 'date' | 'name'
+  hide_completed  boolean not null default false,
+  hidden_category_ids uuid[] not null default '{}',
   updated_at      timestamptz not null default now()
 );
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3 } from 'lucide-react';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, ListFilter, EyeOff, Milestone } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
@@ -130,6 +130,80 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* 목록 표시 (정렬 / 완료 숨기기 / 카테고리별 표시) */}
+        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div className="px-4 pt-4 pb-2 flex items-center gap-1.5">
+            <ListFilter size={13} className="text-gray-400" />
+            <h2 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">목록 표시</h2>
+          </div>
+
+          <div className="px-4 pb-3">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">정렬 기준</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ['manual', '직접 순서'],
+                ['date', '등록순'],
+                ['name', '이름순'],
+              ] as [Settings['listSortBy'], string][]).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => updateSettings({ listSortBy: value })}
+                  className={`py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
+                    settings.listSortBy === value
+                      ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-4 pb-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3">
+            <div className="flex items-center gap-2">
+              <EyeOff size={14} className="text-gray-400" />
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">완료된 항목 숨기기</p>
+            </div>
+            <button
+              onClick={() => updateSettings({ hideCompleted: !settings.hideCompleted })}
+              role="switch"
+              aria-checked={settings.hideCompleted}
+              aria-label="완료된 항목 숨기기"
+              className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${settings.hideCompleted ? 'bg-leaf-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${settings.hideCompleted ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+
+          {categories.length > 0 && (
+            <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">카테고리별 표시</p>
+              <div className="space-y-2">
+                {categories.map(cat => {
+                  const hidden = settings.hiddenCategoryIds.includes(cat.id);
+                  return (
+                    <label key={cat.id} className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!hidden}
+                        onChange={() => updateSettings({
+                          hiddenCategoryIds: hidden
+                            ? settings.hiddenCategoryIds.filter(id => id !== cat.id)
+                            : [...settings.hiddenCategoryIds, cat.id],
+                        })}
+                        className="w-4 h-4 rounded accent-leaf-500 flex-shrink-0"
+                      />
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                      <span className={`text-sm ${hidden ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>{cat.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* Rows */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
           {/* Notifications */}
@@ -166,6 +240,23 @@ export default function SettingsPage() {
               <div className="text-left">
                 <p className="text-sm font-semibold text-gray-800 dark:text-white">카테고리 관리</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{categories.length}개</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-400" />
+          </button>
+
+          {/* Project roadmap */}
+          <button
+            onClick={() => setCurrentScreen('project')}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                <Milestone size={15} className="text-leaf-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">프로젝트 로드맵</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">카테고리 하나를 골라 타임라인으로 보기</p>
               </div>
             </div>
             <ChevronRight size={16} className="text-gray-400" />
