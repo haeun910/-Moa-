@@ -105,7 +105,7 @@ export async function fetchTodos(userId: string): Promise<DbTodo[]> {
 
 export async function createTodo(
   userId: string,
-  fields: { title: string; completed?: boolean; category_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; notes?: string; sort_order?: number }
+  fields: { title: string; completed?: boolean; category_id?: string | null; date?: string | null; due_date?: string | null; start_time?: string | null; notes?: string; sort_order?: number; is_dday?: boolean }
 ): Promise<DbTodo> {
   const { data, error } = await supabase
     .from('todos')
@@ -118,7 +118,7 @@ export async function createTodo(
 
 export async function updateTodo(
   id: string,
-  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'date' | 'due_date' | 'start_time' | 'notes' | 'sort_order'>>
+  updates: Partial<Pick<DbTodo, 'title' | 'completed' | 'category_id' | 'date' | 'due_date' | 'start_time' | 'notes' | 'sort_order' | 'is_dday'>>
 ): Promise<void> {
   const { error } = await supabase.from('todos').update(updates).eq('id', id);
   if (error) throw error;
@@ -269,6 +269,11 @@ export async function createDDay(userId: string, title: string, targetDate: stri
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function updateDDay(id: string, updates: Partial<Pick<DbDDay, 'title' | 'target_date'>>): Promise<void> {
+  const { error } = await supabase.from('ddays').update(updates).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteDDay(id: string): Promise<void> {

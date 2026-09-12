@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, LayoutDashboard, BarChart3, Clock10, Megaphone } from 'lucide-react';
+import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, LayoutDashboard, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, Link2 } from 'lucide-react';
 import MyBoardPanel from '../components/MyBoardPanel';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
 import DDayModal from '../components/DDayModal';
+import DDayListModal from '../components/DDayListModal';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -14,13 +15,40 @@ import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
-import type { Todo } from '../types';
+import type { Todo, DDay } from '../types';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
+// 특정 날짜로 옮기는 작은 팝오버 버튼 (저장소로 보내기와 짝을 이루는, 홈 화면 전용 액션)
+function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1 text-[10px] font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-100 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
+        title="다른 날짜로 옮기기"
+      >
+        <CalendarDays size={11} />
+        날짜 변경
+      </button>
+      {open && (
+        <input
+          type="date"
+          autoFocus
+          defaultValue={todo.date ?? ''}
+          className="absolute right-0 top-full mt-1 z-20 text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 shadow-lg focus:outline-none focus:ring-2 focus:ring-leaf-400"
+          onChange={e => { if (e.target.value) onMove(e.target.value); setOpen(false); }}
+          onBlur={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function TodayPage() {
   const {
-    todos, categories, addTodo, toggleTodo, selectedDate, setSelectedDate,
+    todos, categories, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
     ddays, deleteDDay, notices, setCurrentScreen,
   } = useApp();
@@ -42,6 +70,7 @@ export default function TodayPage() {
 
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showDdayModal, setShowDdayModal] = useState(false);
+  const [showDdayListModal, setShowDdayListModal] = useState(false);
   const [ddayPopoverDate, setDdayPopoverDate] = useState<string | null>(null);
   const [calView, setCalView] = useState<'month' | 'week'>('month');
   const [weekRef, setWeekRef] = useState(new Date());
@@ -102,6 +131,37 @@ export default function TodayPage() {
     return `D+${Math.abs(diff)}`;
   }
 
+  // 할 일에 "D-Day로 표시" 체크를 하면 여기서 가상 D-Day로 합쳐져서 항상 자동으로 동기화됨
+  // (마감일이 있으면 마감일, 없으면 작업 날짜를 기준일로 사용)
+  const todoDdays: DDay[] = todos
+    .filter(t => t.isDday && (t.dueDate || t.date))
+    .map(t => ({ id: `todo-${t.id}`, title: t.title, targetDate: (t.dueDate || t.date) as string, fromTodoId: t.id }));
+  const allDdays = [...ddays, ...todoDdays].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+  // 위쪽 위젯에는 지나간 D-Day는 숨기고, "D-Day" 제목을 누르면 지나간 것까지 전체를 보여줌
+  const upcomingDdays = allDdays.filter(d => differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0);
+
+  async function removeDday(d: DDay) {
+    if (d.fromTodoId) await updateTodo(d.fromTodoId, { isDday: false });
+    else await deleteDDay(d.id);
+  }
+
+  // 홈 화면에서: 저장소로 다시 보내거나 다른 날짜로 옮기기
+  function getTodoActions(todo: Todo) {
+    return (
+      <>
+        <button
+          onClick={e => { e.stopPropagation(); updateTodo(todo.id, { date: null }); }}
+          className="flex items-center gap-1 text-[10px] font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-100 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
+          title="저장소로 다시 보내기 (날짜 없이 보관)"
+        >
+          <Undo2 size={11} />
+          저장소로
+        </button>
+        <MoveToDateButton todo={todo} onMove={date => updateTodo(todo.id, { date })} />
+      </>
+    );
+  }
+
   // 선택한 날의 할 일을 카테고리별로 나눠서 보여줌 (카테고리 이름이 목록 사이에 끼워짐)
   function renderDayGroups() {
     if (selectedTodos.length === 0) {
@@ -127,7 +187,7 @@ export default function TodayPage() {
               )}
               <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{groupTodos.length}</span>
             </div>
-            <TodoList todos={groupTodos} onEdit={openEdit} autoCompleteSubtasks />
+            <TodoList todos={groupTodos} onEdit={openEdit} autoCompleteSubtasks getActions={getTodoActions} />
           </div>
         ))}
       </div>
@@ -149,7 +209,9 @@ export default function TodayPage() {
           <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
             {/* 이번달 목표 */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[140px]">
+            {/* min-h만 있으면 내용이 늘어날 때 카드 자체가 커져서 안의 overflow-y-auto가 무용지물이라
+                calendars가 밀려 찌부러지는 원인이었음 → md 이상에서는 높이를 고정해 리스트만 스크롤되게 함 */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:h-[140px]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Flag size={14} className="text-leaf-500 md:w-[13px] md:h-[13px]" />
@@ -195,9 +257,13 @@ export default function TodayPage() {
             </div>
 
             {/* D-Day */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:min-h-[140px]">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:h-[140px]">
               <div className="flex items-center justify-between">
-                <span className="text-sm md:text-xs font-bold text-gray-700 dark:text-gray-300">D-Day</span>
+                <button onClick={() => setShowDdayListModal(true)}
+                  className="text-sm md:text-xs font-bold text-gray-700 dark:text-gray-300 hover:text-leaf-600 dark:hover:text-leaf-400 transition-colors"
+                  title="지난 D-Day까지 전체 보기">
+                  D-Day
+                </button>
                 <button onClick={() => setShowDdayModal(true)} aria-label="D-Day 추가"
                   className="w-7 h-7 md:w-5 md:h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
                   <Plus size={14} className="md:hidden" />
@@ -206,20 +272,24 @@ export default function TodayPage() {
               </div>
 
               <div className="flex-1 space-y-2 md:space-y-1.5 overflow-y-auto">
-                {ddays.length === 0 && (
+                {upcomingDdays.length === 0 && (
                   <p className="text-sm md:text-xs text-gray-300 dark:text-gray-600">디데이를 추가해보세요</p>
                 )}
-                {ddays.map(d => (
+                {upcomingDdays.map(d => (
                   <div key={d.id} className="flex items-center gap-2 group">
                     <Flag size={11} className="flex-shrink-0 text-leaf-500 md:hidden" />
                     <Flag size={10} className="flex-shrink-0 text-leaf-500 hidden md:block" />
-                    <span className={`flex-shrink-0 text-xs md:text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[48px] md:min-w-[44px] text-center ${
-                      differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0
-                        ? 'bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
-                    }`}>{ddayLabel(d.targetDate)}</span>
-                    <span className="flex-1 text-sm md:text-xs text-gray-700 dark:text-gray-300 truncate">{d.title}</span>
-                    <button onClick={() => deleteDDay(d.id)} aria-label="D-Day 삭제"
+                    <span className="flex-shrink-0 text-xs md:text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[48px] md:min-w-[44px] text-center bg-leaf-50 dark:bg-leaf-900/30 text-leaf-600 dark:text-leaf-400">
+                      {ddayLabel(d.targetDate)}
+                    </span>
+                    <span className="flex-1 min-w-0 text-sm md:text-xs text-gray-700 dark:text-gray-300 truncate">{d.title}</span>
+                    <span className="flex-shrink-0 text-[10px] text-gray-400 hidden sm:inline">{format(parseISO(d.targetDate), 'M/d')}</span>
+                    {d.fromTodoId && (
+                      <span title="할 일에서 연동됨" className="flex-shrink-0 text-gray-300 dark:text-gray-600">
+                        <Link2 size={11} />
+                      </span>
+                    )}
+                    <button onClick={() => removeDday(d)} aria-label="D-Day 삭제"
                       className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
                       <Trash2 size={14} className="md:hidden" />
                       <Trash2 size={12} className="hidden md:block" />
@@ -320,7 +390,7 @@ export default function TodayPage() {
                   const isSelected = dateStr === selectedDate && panelOpen;
                   const inMonth = isSameMonth(day, viewMonth);
                   const dayTodos = todos.filter(t => t.date === dateStr);
-                  const dayDdays = ddays.filter(d => d.targetDate === dateStr);
+                  const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
                   const dow = day.getDay();
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
@@ -564,6 +634,9 @@ export default function TodayPage() {
       {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}
       {showGoalModal && <GoalModal month={currentMonth} onClose={() => setShowGoalModal(false)} />}
       {showDdayModal && <DDayModal onClose={() => setShowDdayModal(false)} />}
+      {showDdayListModal && (
+        <DDayListModal ddays={allDdays} onDelete={removeDday} onClose={() => setShowDdayListModal(false)} />
+      )}
     </div>
   );
 }

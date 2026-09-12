@@ -11,12 +11,14 @@ interface Props {
   // 하위 항목이 모두 완료되면 이 할 일도 자동으로 완료 처리(반대로 새 하위 항목이 생기면 완료 해제).
   // 홈 화면에서만 켜서 쓰고, 저장소에서는 기존처럼 서로 영향 없게 둠.
   autoCompleteSubtasks?: boolean;
-  // 저장소에서만: 하위 항목 하나만 콕 집어 오늘로 보낼 수 있는 버튼을 보여줌
+  // 저장소에서만: 세부 할일 하나만 콕 집어 오늘로 보낼 수 있는 버튼을 보여줌
   // (여러 개를 골라 옮기는 "하위 선택" 일괄 이동 기능은 그대로 유지됨)
   allowSendSubtaskToToday?: boolean;
+  // 저장소에서만: 체크박스를 눌러 완료 처리하면 자동으로 오늘 날짜로 이동시킴
+  completeMovesToToday?: boolean;
 }
 
-export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, allowSendSubtaskToToday }: Props) {
+export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, allowSendSubtaskToToday, completeMovesToToday }: Props) {
   const { toggleTodo, toggleSubTask, deleteTodo, updateTodo, moveSubtasksToDate, addSubtaskInline, updateSubtaskInline, deleteSubtaskInline, categories } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -85,11 +87,25 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
     setEditingTitle(false);
   }
 
-  // 하위 항목 하나만 오늘로 보냄. 큰 제목은 할 일이 아니라 하위 항목을 묶는 카테고리라서,
+  // 세부 할일 하나만 오늘로 보냄. 큰 제목은 할 일이 아니라 세부 할일을 묶는 카테고리라서,
   // moveSubtasksToDate가 오늘 날짜에 이미 있는 같은 이름 컨테이너로 합쳐주거나 새로 만들어줌
   // (그래서 여러 개를 하나씩 나눠 보내도 오늘 화면에서 한 군데로 모임)
   async function sendSubtaskToToday(sub: SubTask) {
     await moveSubtasksToDate(todo.id, [sub.id], format(new Date(), 'yyyy-MM-dd'));
+  }
+
+  // 체크박스 클릭 처리: 저장소에서는 완료 체크 시 자동으로 오늘 날짜로 이동(completeMovesToToday),
+  // 홈 화면에서는 큰 제목을 완료 체크하면 세부 할일도 한꺼번에 완료 처리(autoCompleteSubtasks)
+  async function handleCheckboxClick() {
+    if (completeMovesToToday && !todo.completed) {
+      await updateTodo(todo.id, { completed: true, date: format(new Date(), 'yyyy-MM-dd') });
+      return;
+    }
+    if (autoCompleteSubtasks && !todo.completed && todo.subtasks.length > 0) {
+      await updateTodo(todo.id, { completed: true, subtasks: todo.subtasks.map(s => ({ ...s, completed: true })) });
+      return;
+    }
+    await toggleTodo(todo.id);
   }
 
   return (
@@ -113,7 +129,7 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
       <div className={`flex items-start gap-3 px-4 py-3.5 ${category ? 'pl-[18px]' : ''}`}>
         {/* Checkbox */}
         <button
-          onClick={() => toggleTodo(todo.id)}
+          onClick={handleCheckboxClick}
           aria-label={todo.completed ? '완료 취소' : '완료 처리'}
           className={`flex-shrink-0 w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center transition-all duration-200 ${
             todo.completed
@@ -186,11 +202,11 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
         {/* Add subtask */}
         <button
           onClick={openSubtaskAdd}
-          aria-label="하위 항목 추가"
+          aria-label="세부 할일 추가"
           className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-leaf-500 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 transition-all duration-200 ${
             showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
-          title="하위 항목 추가"
+          title="세부 할일 추가"
         >
           <Plus size={14} />
         </button>
@@ -199,7 +215,7 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
         {(subtaskTotal > 0 || addingSubtask) && (
           <button
             onClick={() => setExpanded(v => !v)}
-            aria-label={expanded ? '하위 항목 접기' : '하위 항목 펼치기'}
+            aria-label={expanded ? '세부 할일 접기' : '세부 할일 펼치기'}
             className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -278,8 +294,8 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
               {allowSendSubtaskToToday && (
                 <button
                   onClick={() => sendSubtaskToToday(sub)}
-                  aria-label="이 하위 항목만 오늘로 보내기"
-                  title="이 하위 항목만 오늘로 보내기"
+                  aria-label="이 세부 할일만 오늘로 보내기"
+                  title="이 세부 할일만 오늘로 보내기"
                   className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-gray-300 hover:text-leaf-600 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 opacity-0 group-hover/sub:opacity-100 transition-all"
                 >
                   <CalendarCheck size={12} />
@@ -287,7 +303,7 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
               )}
               <button
                 onClick={() => deleteSubtaskInline(todo.id, sub.id, autoOpts)}
-                aria-label="하위 항목 삭제"
+                aria-label="세부 할일 삭제"
                 className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover/sub:opacity-100 transition-all"
               >
                 <Trash2 size={12} />
@@ -303,7 +319,7 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
                 type="text"
                 value={newSubtask}
                 onChange={e => setNewSubtask(e.target.value)}
-                placeholder="하위 항목 입력..."
+                placeholder="세부 할일 입력..."
                 className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none"
                 onKeyDown={e => {
                   if (e.key === 'Enter') handleAddSubtask();
@@ -321,7 +337,7 @@ export default function TodoItem({ todo, onEdit, actions, autoCompleteSubtasks, 
               className={`flex items-center gap-2 px-4 py-2 w-full text-left text-xs text-gray-400 dark:text-gray-500 hover:text-leaf-500 dark:hover:text-leaf-400 transition-colors ${category ? 'pl-[18px]' : ''}`}
             >
               <Plus size={13} />
-              하위 항목 추가
+              세부 할일 추가
             </button>
           )}
         </div>

@@ -170,7 +170,7 @@ export default function AllTodosPage() {
         <button
           onClick={e => { e.stopPropagation(); sendToToday(todo); }}
           className="flex items-center gap-1 text-[10px] font-semibold text-leaf-600 hover:text-leaf-800 dark:text-leaf-400 dark:hover:text-leaf-200 bg-leaf-50 hover:bg-leaf-300 dark:bg-leaf-900/30 dark:hover:bg-leaf-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-          title="이 할 일(하위 항목 포함) 전체를 오늘 날짜로 이동"
+          title="이 할 일(세부 할일 포함) 전체를 오늘 날짜로 이동"
         >
           <CalendarCheck size={11} />
           오늘로
@@ -179,7 +179,7 @@ export default function AllTodosPage() {
         <button
           onClick={e => { e.stopPropagation(); duplicateTodo(todo); }}
           className="flex items-center gap-1 text-[10px] font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-100 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-          title="이 할 일(하위 항목 포함)을 복사해서 새로 추가"
+          title="이 할 일(세부 할일 포함)을 복사해서 새로 추가"
         >
           <Copy size={11} />
           복사
@@ -188,7 +188,7 @@ export default function AllTodosPage() {
           <button
             onClick={e => { e.stopPropagation(); setSubtaskMoveTodo(todo); }}
             className="flex items-center gap-1 text-[10px] font-semibold text-violet-600 hover:text-white bg-violet-50 hover:bg-violet-500 dark:bg-violet-900/30 dark:hover:bg-violet-500 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-            title="하위 항목 중 원하는 것만 골라서 오늘로 이동"
+            title="세부 할일 중 원하는 것만 골라서 오늘로 이동"
           >
             <ListTodo size={11} />
             하위 선택
@@ -215,7 +215,7 @@ export default function AllTodosPage() {
           <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
         </div>
         <p className="text-[11px] text-gray-400 dark:text-gray-600 mb-3">
-          💡 할 일을 다른 할 일 가운데로 끌어다 놓으면 하위 항목으로 합쳐져요
+          💡 할 일을 다른 할 일 가운데로 끌어다 놓으면 세부 할일로 합쳐져요
         </p>
         {cat && (
           <div className="mb-3 px-1">
@@ -238,7 +238,7 @@ export default function AllTodosPage() {
             <p className="text-sm font-medium text-gray-500">이 카테고리에 할 일이 없어요</p>
           </div>
         ) : (
-          <TodoList todos={filtered} onEdit={openEdit} getActions={getTodoActions} allowSendSubtaskToToday enableMergeToSubtask />
+          <TodoList todos={filtered} onEdit={openEdit} getActions={getTodoActions} allowSendSubtaskToToday completeMovesToToday enableMergeToSubtask />
         )}
 
         <div className="fixed bottom-[62px] left-0 right-0 z-40 px-4 lg:px-8 pb-3 max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto">
@@ -358,7 +358,7 @@ export default function AllTodosPage() {
         <CategoryFilter activeCatId={activeCatId} onChange={setActiveCatId} />
       </div>
       <p className="text-[11px] text-gray-400 dark:text-gray-600 mb-3">
-        💡 할 일을 다른 할 일 가운데로 끌어다 놓으면 하위 항목으로 합쳐져요
+        💡 할 일을 다른 할 일 가운데로 끌어다 놓으면 세부 할일로 합쳐져요
       </p>
 
       {catGroups.length === 0 && (
@@ -405,7 +405,7 @@ export default function AllTodosPage() {
                   <SortableContext id={groupId} items={catTodos.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     {catTodos.length > 0 ? (
                       catTodos.map(todo => (
-                        <SortableTodoItem key={todo.id} todo={todo} onEdit={openEdit} actions={getTodoActions(todo)} allowSendSubtaskToToday />
+                        <SortableTodoItem key={todo.id} todo={todo} onEdit={openEdit} actions={getTodoActions(todo)} allowSendSubtaskToToday completeMovesToToday />
                       ))
                     ) : (
                       <div className="h-3" />

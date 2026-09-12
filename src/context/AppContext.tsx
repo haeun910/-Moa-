@@ -20,6 +20,7 @@ function toTodo(t: DbTodo): Todo {
     categoryId: t.category_id,
     date: t.date,
     dueDate: t.due_date,
+    isDday: t.is_dday,
     startTime: t.start_time,
     notes: t.notes ?? '',
     subtasks: (t.subtasks ?? []).map(toSubTask),
@@ -86,6 +87,7 @@ interface AppContextType {
   toggleMonthlyGoal: (id: string) => Promise<void>;
   deleteMonthlyGoal: (id: string) => Promise<void>;
   addDDay: (title: string, targetDate: string) => Promise<void>;
+  updateDDay: (id: string, updates: { title?: string; targetDate?: string }) => Promise<void>;
   deleteDDay: (id: string) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
   updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
@@ -225,6 +227,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       category_id: fields.categoryId,
       date: fields.date,
       due_date: fields.dueDate ?? null,
+      is_dday: fields.isDday ?? false,
       start_time: fields.startTime ?? null,
       notes: fields.notes,
       // 새 항목은 항상 맨 끝에 오도록 sort_order를 명시적으로 지정.
@@ -246,6 +249,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if ('categoryId' in updates) dbUpdates.category_id = updates.categoryId ?? null;
     if ('date' in updates) dbUpdates.date = updates.date ?? null;
     if ('dueDate' in updates) dbUpdates.due_date = updates.dueDate ?? null;
+    if (updates.isDday !== undefined) dbUpdates.is_dday = updates.isDday;
     if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
@@ -447,6 +451,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDDays(prev => [...prev, toDDay(row)].sort((a, b) => a.targetDate.localeCompare(b.targetDate)));
   }, [user]);
 
+  const updateDDay = useCallback(async (id: string, updates: { title?: string; targetDate?: string }) => {
+    setDDays(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d).sort((a, b) => a.targetDate.localeCompare(b.targetDate)));
+    const dbUpdates: Parameters<typeof db.updateDDay>[1] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.targetDate !== undefined) dbUpdates.target_date = updates.targetDate;
+    await db.updateDDay(id, dbUpdates);
+  }, []);
+
   const deleteDDay = useCallback(async (id: string) => {
     setDDays(prev => prev.filter(d => d.id !== id));
     await db.deleteDDay(id);
@@ -487,7 +499,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addNote, updateNote, deleteNote,
       updateSettings,
       addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
-      addDDay, deleteDDay,
+      addDDay, updateDDay, deleteDDay,
       addNotice, updateNotice, deleteNotice,
       setCurrentScreen, setSelectedDate,
     }}>
