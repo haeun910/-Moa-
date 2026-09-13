@@ -24,6 +24,7 @@ export interface Subcategory {
   id: string;
   categoryId: string;
   name: string;
+  notes?: string | null; // 하위카테고리 메모 (저장소 화면에서만 노출)
 }
 
 export interface Note {

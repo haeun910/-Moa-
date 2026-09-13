@@ -29,7 +29,7 @@ function toCategory(c: DbCategory): Category {
 }
 
 function toSubcategory(s: DbSubcategory): Subcategory {
-  return { id: s.id, categoryId: s.category_id, name: s.name };
+  return { id: s.id, categoryId: s.category_id, name: s.name, notes: s.notes };
 }
 
 function toNote(n: DbNote): Note {
@@ -83,7 +83,7 @@ interface AppContextType {
   deleteCategory: (id: string) => Promise<void>;
   reorderCategories: (orderedIds: string[]) => Promise<void>;
   addSubcategory: (categoryId: string, name: string) => Promise<void>;
-  updateSubcategory: (id: string, updates: { name?: string }) => Promise<void>;
+  updateSubcategory: (id: string, updates: { name?: string; notes?: string | null }) => Promise<void>;
   deleteSubcategory: (id: string) => Promise<void>;
   reorderSubcategories: (orderedIds: string[]) => Promise<void>;
   addNote: (title: string, content: string) => Promise<void>;
@@ -328,7 +328,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSubcategories(prev => [...prev, toSubcategory(row)]);
   }, [user, subcategories]);
 
-  const updateSubcategory = useCallback(async (id: string, updates: { name?: string }) => {
+  const updateSubcategory = useCallback(async (id: string, updates: { name?: string; notes?: string | null }) => {
     setSubcategories(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
     await db.updateSubcategory(id, updates);
   }, []);

@@ -21,6 +21,7 @@ create table if not exists public.subcategories (
   user_id     uuid not null references auth.users(id) on delete cascade,
   category_id uuid not null references public.categories(id) on delete cascade,
   name        text not null,
+  notes       text,                          -- 저장소 화면에서만 보이는 하위카테고리 메모
   sort_order  integer not null default 0,
   created_at  timestamptz not null default now()
 );

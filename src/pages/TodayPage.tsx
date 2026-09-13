@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, LayoutDashboard, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, Link2 } from 'lucide-react';
-import MyBoardPanel from '../components/MyBoardPanel';
+import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, Link2 } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
@@ -49,7 +48,7 @@ function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string)
 
 export default function TodayPage() {
   const {
-    todos, categories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
+    todos, categories, subcategories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
     ddays, deleteDDay, notices, setCurrentScreen,
   } = useApp();
@@ -72,12 +71,10 @@ export default function TodayPage() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showDdayModal, setShowDdayModal] = useState(false);
   const [showDdayListModal, setShowDdayListModal] = useState(false);
-  const [ddayPopoverDate, setDdayPopoverDate] = useState<string | null>(null);
   const [calView, setCalView] = useState<'month' | 'week'>('month');
   const [weekRef, setWeekRef] = useState(new Date());
   const [weekAddDate, setWeekAddDate] = useState<string | null>(null);
   const [weekAddTitle, setWeekAddTitle] = useState('');
-  const [showBoard, setShowBoard] = useState(false);
   const [showAchievement, setShowAchievement] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
   const [lastSeenNotice, setLastSeenNotice] = useState(() => localStorage.getItem('notice-last-seen') ?? '');
@@ -108,7 +105,6 @@ export default function TodayPage() {
   ].filter(g => g.groupTodos.length > 0);
 
   function handleDayClick(dateStr: string) {
-    setDdayPopoverDate(null);
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
     else { setSelectedDate(dateStr); setPanelOpen(true); }
   }
@@ -177,22 +173,42 @@ export default function TodayPage() {
     }
     return (
       <div className="space-y-4">
-        {dayGroups.map(({ cat, groupTodos }) => (
-          <div key={cat?.id ?? '__none__'}>
-            <div className="flex items-center gap-2 mb-1.5 px-1">
-              {cat ? (
-                <>
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
-                </>
-              ) : (
-                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
-              )}
-              <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{groupTodos.length}</span>
+        {dayGroups.map(({ cat, groupTodos }) => {
+          // 카테고리 안에서 다시 하위카테고리별로 나눔 (저장소에서 완료 체크해 오늘로 넘어온
+          // 항목도 하위카테고리가 그대로 보이도록). 하위카테고리가 없는 항목은 그대로 위에 나열.
+          const bareTodos = cat ? groupTodos.filter(t => !t.subcategoryId) : groupTodos;
+          const subGroups = cat
+            ? subcategories
+                .filter(sc => sc.categoryId === cat.id)
+                .map(sc => ({ subcat: sc, subTodos: groupTodos.filter(t => t.subcategoryId === sc.id) }))
+                .filter(g => g.subTodos.length > 0)
+            : [];
+          return (
+            <div key={cat?.id ?? '__none__'}>
+              <div className="flex items-center gap-2 mb-1.5 px-1">
+                {cat ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                    <span className="text-xs font-bold text-gray-600 dark:text-gray-300 tracking-wide">{cat.name}</span>
+                  </>
+                ) : (
+                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500 tracking-wide">분류 없음</span>
+                )}
+                <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{groupTodos.length}</span>
+              </div>
+              <TodoList todos={bareTodos} onEdit={openEdit} getActions={getTodoActions} />
+              {subGroups.map(({ subcat, subTodos }) => (
+                <div key={subcat.id} className="mt-1.5 pl-3 border-l-2 border-gray-100 dark:border-gray-800">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 px-1">
+                    {subcat.name}
+                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">{subTodos.length}</span>
+                  </p>
+                  <TodoList todos={subTodos} onEdit={openEdit} getActions={getTodoActions} />
+                </div>
+              ))}
             </div>
-            <TodoList todos={groupTodos} onEdit={openEdit} getActions={getTodoActions} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -352,7 +368,7 @@ export default function TodayPage() {
                 오늘
               </button>
             </div>
-            {/* 공지사항 / 내보드 / 성취리포트 */}
+            {/* 공지사항 / 성취리포트 */}
             <div className="flex items-center gap-1">
               <button onClick={openNotice} aria-label="공지사항" title="공지사항"
                 className="relative flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
@@ -360,11 +376,6 @@ export default function TodayPage() {
                 {hasUnreadNotice && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-950" />
                 )}
-              </button>
-              <button onClick={() => setShowBoard(true)}
-                className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
-                <LayoutDashboard size={13} />
-                내 보드
               </button>
               <button onClick={() => setShowAchievement(true)}
                 className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs font-semibold text-leaf-600 dark:text-leaf-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 border border-leaf-200 dark:border-leaf-800 transition-colors">
@@ -395,60 +406,58 @@ export default function TodayPage() {
                   const dayTodos = todos.filter(t => t.date === dateStr);
                   const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
                   const dow = day.getDay();
+
+                  // 일정(날짜가 정해진 항목) 미리보기: 예전엔 카테고리당 색깔 점 하나로만 요약했는데,
+                  // 이러면 무슨 일정인지 칸을 눌러보기 전엔 알 수 없었음. 이제 제목이 보이는 작은 칩으로
+                  // 바로 보여주고, 디데이도 깃발 아이콘 뒤에 제목이 함께 보이게 함. 칸이 좁아 최대 3개만
+                  // 보여주고 나머지는 "+N개"로 요약(자세히 보려면 칸을 눌러 아래/오른쪽 패널 확인)
+                  const chips = [
+                    ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, color: '#6B8534', isDday: true, completed: false })),
+                    ...dayTodos.map(t => ({
+                      key: `todo-${t.id}`,
+                      title: t.title,
+                      color: categories.find(c => c.id === t.categoryId)?.color ?? '#9CA3AF',
+                      isDday: false,
+                      completed: t.completed,
+                    })),
+                  ];
+                  const visibleChips = chips.slice(0, 3);
+                  const overflowCount = chips.length - visibleChips.length;
+
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      className={`relative flex flex-col items-start min-h-[60px] md:min-h-0 p-2 md:p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
+                      className={`relative flex flex-col items-start min-h-[82px] md:min-h-0 overflow-hidden p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
                         inMonth ? '' : 'opacity-25'
                       } ${isSelected ? 'bg-leaf-50 dark:bg-leaf-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
                     >
-                      {dayDdays.length > 0 && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          aria-label="이 날의 디데이 보기"
-                          onClick={e => { e.stopPropagation(); setDdayPopoverDate(v => v === dateStr ? null : dateStr); }}
-                          className="absolute top-1 right-1 w-4 h-4 rounded-full bg-leaf-300 text-leaf-800 flex items-center justify-center z-10 shadow-sm"
-                        >
-                          <Flag size={9} strokeWidth={2.5} />
-                        </span>
-                      )}
-                      <span className={`flex-shrink-0 w-6 h-6 md:w-5 md:h-5 flex items-center justify-center rounded-md text-xs md:text-[11px] font-bold mb-0.5 ${
-                        isSelected ? 'bg-leaf-300 text-leaf-800'
-                        : isToday ? 'bg-leaf-300 text-leaf-800'
+                      <span className={`flex-shrink-0 w-6 h-6 md:w-5 md:h-5 flex items-center justify-center rounded-md text-xs md:text-[11px] font-bold mb-1 ${
+                        isSelected && isToday ? 'bg-leaf-300 text-leaf-800 ring-2 ring-leaf-600 dark:ring-leaf-400'
+                        : isSelected ? 'bg-leaf-300 text-leaf-800'
+                        : isToday ? 'bg-leaf-100 dark:bg-leaf-900/50 text-leaf-700 dark:text-leaf-300 ring-1 ring-leaf-400 dark:ring-leaf-600'
                         : dow === 0 ? 'text-red-500 font-bold' : dow === 6 ? 'text-leaf-600 font-bold' : 'text-gray-800 dark:text-gray-100'
                       }`}>
                         {format(day, 'd')}
                       </span>
-                      {/* 제목을 텍스트로 나열하면 칸 높이가 날마다 들쭉날쭉해지는 문제가 있어서,
-                          칸 높이는 고정하고 그 날 있는 카테고리를 작은 색깔 점으로만 표시. 자세한
-                          목록은 칸을 눌러 오른쪽(또는 아래) 패널에서 확인 */}
-                      <div className="w-full flex flex-wrap gap-1 overflow-hidden">
-                        {Array.from(new Set(dayTodos.map(t => t.categoryId))).slice(0, 8).map(catId => {
-                          const cat = categories.find(c => c.id === catId);
-                          return (
-                            <span
-                              key={catId ?? '__none__'}
-                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: cat?.color ?? '#9CA3AF' }}
-                            />
-                          );
-                        })}
+                      <div className="w-full space-y-0.5 overflow-hidden">
+                        {visibleChips.map(chip => (
+                          <div
+                            key={chip.key}
+                            title={chip.title}
+                            className={`w-full flex items-center gap-0.5 text-[9px] md:text-[8px] leading-tight px-1 py-[1px] rounded-sm ${
+                              chip.completed ? 'opacity-50 line-through' : ''
+                            }`}
+                            style={{ backgroundColor: `${chip.color}22`, color: chip.color }}
+                          >
+                            {chip.isDday && <Flag size={7} className="flex-shrink-0" strokeWidth={3} />}
+                            <span className={`truncate ${chip.isDday ? 'font-bold' : ''}`}>{chip.title}</span>
+                          </div>
+                        ))}
+                        {overflowCount > 0 && (
+                          <p className="text-[9px] md:text-[8px] leading-tight px-1 text-gray-400 dark:text-gray-500 font-semibold">
+                            +{overflowCount}개
+                          </p>
+                        )}
                       </div>
-                      {ddayPopoverDate === dateStr && (
-                        <div
-                          role="presentation"
-                          onClick={e => e.stopPropagation()}
-                          className="absolute top-6 right-0 z-30 w-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-2 space-y-1"
-                        >
-                          {dayDdays.map(d => (
-                            <div key={d.id} className="flex items-center gap-1.5">
-                              <Flag size={10} className="flex-shrink-0 text-leaf-500" />
-                              <span className="flex-1 text-[11px] font-semibold text-gray-700 dark:text-gray-200 truncate">{d.title}</span>
-                              <span className="text-[10px] font-bold text-leaf-600 dark:text-leaf-400 flex-shrink-0">{ddayLabel(d.targetDate)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </button>
                   );
                 })}
@@ -638,7 +647,6 @@ export default function TodayPage() {
       </div>
 
       {showModal && <TodoModal todo={editTodo} defaultDate={selectedDate} onClose={closeModal} />}
-      {showBoard && <MyBoardPanel onClose={() => setShowBoard(false)} />}
       {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
       {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}
       {showGoalModal && <GoalModal month={currentMonth} onClose={() => setShowGoalModal(false)} />}
