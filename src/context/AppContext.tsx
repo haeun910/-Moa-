@@ -56,6 +56,7 @@ function toSettings(s: DbSettings): Settings {
     listSortBy: s.list_sort_by,
     hideCompleted: s.hide_completed,
     hiddenCategoryIds: s.hidden_category_ids ?? [],
+    calendarTextSize: s.calendar_text_size ?? 'medium',
   };
 }
 
@@ -112,6 +113,7 @@ const DEFAULT_SETTINGS: Settings = {
   listSortBy: 'manual',
   hideCompleted: false,
   hiddenCategoryIds: [],
+  calendarTextSize: 'medium',
 };
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -431,6 +433,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (updates.listSortBy) dbUpdates.list_sort_by = updates.listSortBy;
     if (updates.hideCompleted !== undefined) dbUpdates.hide_completed = updates.hideCompleted;
     if (updates.hiddenCategoryIds !== undefined) dbUpdates.hidden_category_ids = updates.hiddenCategoryIds;
+    if (updates.calendarTextSize) dbUpdates.calendar_text_size = updates.calendarTextSize;
     await db.upsertSettings(user.id, dbUpdates);
   }, [user]);
 

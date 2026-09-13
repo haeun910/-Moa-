@@ -106,6 +106,7 @@ export interface DbSettings {
   list_sort_by: 'manual' | 'date' | 'name';
   hide_completed: boolean;
   hidden_category_ids: string[];
+  calendar_text_size: 'small' | 'medium' | 'large';
   updated_at: string;
 }
 

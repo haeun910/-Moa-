@@ -63,6 +63,7 @@ create table if not exists public.user_settings (
   list_sort_by    text not null default 'manual',   -- 'manual' | 'date' | 'name'
   hide_completed  boolean not null default false,
   hidden_category_ids uuid[] not null default '{}',
+  calendar_text_size text not null default 'medium', -- 'small' | 'medium' | 'large' (홈 화면 월 달력 일정 글자 크기)
   updated_at      timestamptz not null default now()
 );
 
