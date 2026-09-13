@@ -90,6 +90,18 @@ export interface DbDDay {
   created_at: string;
 }
 
+// 일정: 날짜(+선택적 시간)가 정해진 이벤트. 날짜/시간이 없는 "할 일"과 구분되는 별도 항목으로,
+// 홈 화면 달력에는 제목이 보이는 칩으로, 할 일은 그대로 색깔 점으로 표시됨.
+export interface DbSchedule {
+  id: string;
+  user_id: string;
+  title: string;
+  date: string;
+  start_time: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface DbNotice {
   id: string;
   title: string;

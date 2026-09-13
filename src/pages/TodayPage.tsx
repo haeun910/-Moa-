@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, Link2 } from 'lucide-react';
+import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2 } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
 import DDayModal from '../components/DDayModal';
 import DDayListModal from '../components/DDayListModal';
+import ScheduleModal from '../components/ScheduleModal';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -15,7 +16,7 @@ import { useApp } from '../context/AppContext';
 import { applyListDisplaySettings } from '../lib/listDisplay';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
-import type { Todo, DDay, Settings } from '../types';
+import type { Todo, DDay, ScheduleItem, Settings } from '../types';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -58,16 +59,17 @@ export default function TodayPage() {
   const {
     todos, categories, subcategories, settings, addTodo, updateTodo, toggleTodo, selectedDate, setSelectedDate,
     monthlyGoals, toggleMonthlyGoal, deleteMonthlyGoal,
-    ddays, deleteDDay, notices, setCurrentScreen,
+    ddays, deleteDDay, schedules, deleteSchedule, notices, setCurrentScreen,
   } = useApp();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [viewMonth, setViewMonth] = useState(new Date());
 
-  // 달력 월 기준 목표
+  // 달력 월 기준 목표 / 일정
   const currentMonth = format(viewMonth, 'yyyy-MM');
   const monthGoals = monthlyGoals.filter(g => g.month === currentMonth);
   const completedGoals = monthGoals.filter(g => g.completed).length;
+  const monthSchedules = schedules.filter(s => s.date.startsWith(currentMonth));
 
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
@@ -79,6 +81,7 @@ export default function TodayPage() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showDdayModal, setShowDdayModal] = useState(false);
   const [showDdayListModal, setShowDdayListModal] = useState(false);
+  const [scheduleModalState, setScheduleModalState] = useState<{ schedule?: ScheduleItem; defaultDate?: string } | null>(null);
   const [calView, setCalView] = useState<'month' | 'week'>('month');
   const [weekRef, setWeekRef] = useState(new Date());
   const [weekAddDate, setWeekAddDate] = useState<string | null>(null);
@@ -112,6 +115,7 @@ export default function TodayPage() {
     ...categories.map(cat => ({ cat, groupTodos: selectedTodos.filter(t => t.categoryId === cat.id) })),
     { cat: null, groupTodos: selectedTodos.filter(t => !t.categoryId) },
   ].filter(g => g.groupTodos.length > 0);
+  const selectedSchedules = schedules.filter(s => s.date === selectedDate);
 
   function handleDayClick(dateStr: string) {
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
@@ -172,7 +176,7 @@ export default function TodayPage() {
 
   // 선택한 날의 할 일을 카테고리별로 나눠서 보여줌 (카테고리 이름이 목록 사이에 끼워짐)
   function renderDayGroups() {
-    if (selectedTodos.length === 0) {
+    if (selectedTodos.length === 0 && selectedSchedules.length === 0) {
       return (
         <div className="text-center pt-16">
           <p className="text-sm text-gray-400">이 날의 할 일이 없어요</p>
@@ -182,6 +186,36 @@ export default function TodayPage() {
     }
     return (
       <div className="space-y-4">
+        {selectedSchedules.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5 px-1">
+              <CalendarClock size={12} className="text-blue-500 flex-shrink-0" />
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-wide">일정</span>
+              <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">{selectedSchedules.length}</span>
+            </div>
+            <div className="space-y-1.5">
+              {selectedSchedules.map(s => (
+                <div
+                  key={s.id}
+                  onClick={() => setScheduleModalState({ schedule: s })}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 cursor-pointer group transition-colors hover:border-blue-300 dark:hover:border-blue-700"
+                >
+                  {s.startTime && (
+                    <span className="flex-shrink-0 text-[11px] font-semibold text-blue-600 dark:text-blue-400">{s.startTime}</span>
+                  )}
+                  <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
+                  <button
+                    onClick={e => { e.stopPropagation(); deleteSchedule(s.id); }}
+                    aria-label="일정 삭제"
+                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {dayGroups.map(({ cat, groupTodos }) => {
           // 카테고리 안에서 다시 하위카테고리별로 나눔 (저장소에서 완료 체크해 오늘로 넘어온
           // 항목도 하위카테고리가 그대로 보이도록). 하위카테고리가 없는 항목은 그대로 위에 나열.
@@ -233,8 +267,8 @@ export default function TodayPage() {
 
         <div className="flex-1 flex flex-col px-4 sm:px-5 pt-4 pb-4 md:min-h-0">
 
-          {/* ── 목표 + D-Day (모바일은 세로로 쌓아서 카드 하나당 폭을 넉넉하게) ── */}
-          <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          {/* ── 목표 + D-Day + 일정 (모바일은 세로로 쌓아서 카드 하나당 폭을 넉넉하게) ── */}
+          <div className="flex-shrink-0 grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
 
             {/* 이번달 목표 */}
             {/* min-h만 있으면 내용이 늘어날 때 카드 자체가 커져서 안의 overflow-y-auto가 무용지물이라
@@ -318,6 +352,45 @@ export default function TodayPage() {
                       </span>
                     )}
                     <button onClick={() => removeDday(d)} aria-label="D-Day 삭제"
+                      className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
+                      <Trash2 size={14} className="md:hidden" />
+                      <Trash2 size={12} className="hidden md:block" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 일정 (날짜/시간이 정해진 이벤트 - 할 일과 별개로 관리) */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4 md:p-3.5 flex flex-col gap-2 min-h-[120px] md:h-[140px]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <CalendarClock size={14} className="text-blue-500 md:w-[13px] md:h-[13px]" />
+                  <span className="text-sm md:text-xs font-bold text-gray-700 dark:text-gray-300">
+                    {format(viewMonth, 'M월')} 일정
+                  </span>
+                </div>
+                <button onClick={() => setScheduleModalState({ defaultDate: format(new Date(), 'yyyy-MM-dd') })} aria-label="일정 추가"
+                  className="w-7 h-7 md:w-5 md:h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
+                  <Plus size={14} className="md:hidden" />
+                  <Plus size={11} className="hidden md:block" />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-2 md:space-y-1.5 overflow-y-auto">
+                {monthSchedules.length === 0 && (
+                  <p className="text-sm md:text-xs text-gray-300 dark:text-gray-600">일정을 추가해보세요</p>
+                )}
+                {monthSchedules.map(s => (
+                  <div key={s.id} className="flex items-center gap-2 group cursor-pointer" onClick={() => setScheduleModalState({ schedule: s })}>
+                    <span className="flex-shrink-0 text-xs md:text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[38px] md:min-w-[34px] text-center bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      {format(parseISO(s.date), 'M/d')}
+                    </span>
+                    <span className="flex-1 min-w-0 text-sm md:text-xs text-gray-700 dark:text-gray-300 truncate">{s.title}</span>
+                    {s.startTime && (
+                      <span className="flex-shrink-0 text-[10px] text-gray-400">{s.startTime}</span>
+                    )}
+                    <button onClick={e => { e.stopPropagation(); deleteSchedule(s.id); }} aria-label="일정 삭제"
                       className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
                       <Trash2 size={14} className="md:hidden" />
                       <Trash2 size={12} className="hidden md:block" />
@@ -414,24 +487,19 @@ export default function TodayPage() {
                   const inMonth = isSameMonth(day, viewMonth);
                   const dayTodos = todos.filter(t => t.date === dateStr);
                   const dayDdays = allDdays.filter(d => d.targetDate === dateStr);
+                  const daySchedules = schedules.filter(s => s.date === dateStr);
                   const dow = day.getDay();
 
-                  // 일정(날짜가 정해진 항목) 미리보기: 예전엔 카테고리당 색깔 점 하나로만 요약했는데,
-                  // 이러면 무슨 일정인지 칸을 눌러보기 전엔 알 수 없었음. 이제 제목이 보이는 작은 칩으로
-                  // 바로 보여주고, 디데이도 깃발 아이콘 뒤에 제목이 함께 보이게 함. 칸이 좁아 최대 3개만
-                  // 보여주고 나머지는 "+N개"로 요약(자세히 보려면 칸을 눌러 아래/오른쪽 패널 확인)
+                  // 달력 칸에는 디데이/일정(날짜·시간이 정해진 것)만 제목이 보이는 칩으로 미리 보여주고,
+                  // 할 일(날짜만 있고 시간표는 아닌 것)은 예전처럼 카테고리별 색깔 점으로만 표시.
+                  // 칩이 좁아 최대 몇 개만 보여주고 나머지는 "+N개"로 요약(자세히 보려면 칸을 눌러 확인)
                   const chips = [
                     ...dayDdays.map(d => ({ key: `dday-${d.id}`, title: d.title, color: '#6B8534', isDday: true, completed: false })),
-                    ...dayTodos.map(t => ({
-                      key: `todo-${t.id}`,
-                      title: t.title,
-                      color: categories.find(c => c.id === t.categoryId)?.color ?? '#9CA3AF',
-                      isDday: false,
-                      completed: t.completed,
-                    })),
+                    ...daySchedules.map(s => ({ key: `sch-${s.id}`, title: s.title, color: '#5B8DEF', isDday: false, completed: false })),
                   ];
                   const visibleChips = chips.slice(0, chipStyle.maxChips);
                   const overflowCount = chips.length - visibleChips.length;
+                  const todoDots = Array.from(new Set(dayTodos.map(t => t.categoryId))).slice(0, 8);
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
@@ -467,6 +535,21 @@ export default function TodayPage() {
                           </p>
                         )}
                       </div>
+                      {/* 할 일은 제목 대신 카테고리 색깔 점으로만 요약 (자세한 목록은 칸을 눌러 확인) */}
+                      {todoDots.length > 0 && (
+                        <div className="w-full flex flex-wrap gap-1 mt-auto pt-0.5">
+                          {todoDots.map(catId => {
+                            const cat = categories.find(c => c.id === catId);
+                            return (
+                              <span
+                                key={catId ?? '__none__'}
+                                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: cat?.color ?? '#9CA3AF' }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                     </button>
                   );
                 })}
@@ -579,6 +662,10 @@ export default function TodayPage() {
                 <p className="text-xs text-gray-400 mt-0.5">{selectedTodos.length}개의 할 일</p>
               </div>
               <div className="flex items-center gap-1.5">
+                <button onClick={() => setScheduleModalState({ defaultDate: selectedDate })} aria-label="일정 추가" title="일정 추가"
+                  className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                  <CalendarClock size={14} />
+                </button>
                 <button onClick={() => setCurrentScreen('calendar')} aria-label="시간표 보기" title="시간표 보기"
                   className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                   <Clock10 size={14} />
@@ -624,6 +711,10 @@ export default function TodayPage() {
             <p className="text-xs text-gray-400">{selectedTodos.length}개</p>
           </div>
           <div className="flex items-center gap-1.5">
+            <button onClick={() => setScheduleModalState({ defaultDate: selectedDate })} aria-label="일정 추가" title="일정 추가"
+              className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
+              <CalendarClock size={13} />
+            </button>
             <button onClick={() => setCurrentScreen('calendar')} aria-label="시간표 보기" title="시간표 보기"
               className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
               <Clock10 size={13} />
@@ -662,6 +753,13 @@ export default function TodayPage() {
       {showDdayModal && <DDayModal onClose={() => setShowDdayModal(false)} />}
       {showDdayListModal && (
         <DDayListModal ddays={allDdays} onDelete={removeDday} onClose={() => setShowDdayListModal(false)} />
+      )}
+      {scheduleModalState && (
+        <ScheduleModal
+          schedule={scheduleModalState.schedule}
+          defaultDate={scheduleModalState.defaultDate}
+          onClose={() => setScheduleModalState(null)}
+        />
       )}
     </div>
   );

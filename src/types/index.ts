@@ -61,6 +61,17 @@ export interface DDay {
   fromTodoId?: string; // 이 값이 있으면 할 일에서 자동으로 연동된 가상 D-Day (직접 수정/삭제 불가, 할 일 쪽에서 관리)
 }
 
+// 일정: 날짜(+선택적 시간)가 정해진 이벤트. 날짜/시간이 없는 "할 일"과는 별개로 관리되고,
+// 홈 화면 달력에는 할 일(색깔 점)과 달리 제목이 보이는 칩으로 표시됨.
+export interface ScheduleItem {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  startTime?: string | null; // HH:MM
+  notes?: string | null;
+  createdAt: string;
+}
+
 export interface Notice {
   id: string;
   title: string;

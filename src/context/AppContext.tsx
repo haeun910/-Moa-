@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ADMIN_USER_ID } from '../lib/supabase';
-import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbNotice } from '../lib/supabase';
+import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice } from '../lib/supabase';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format } from 'date-fns';
-import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, Notice } from '../types';
+import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toTodo(t: DbTodo): Todo {
@@ -44,6 +44,10 @@ function toDDay(d: DbDDay): DDay {
   return { id: d.id, title: d.title, targetDate: d.target_date };
 }
 
+function toSchedule(s: DbSchedule): ScheduleItem {
+  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, notes: s.notes, createdAt: s.created_at };
+}
+
 function toNotice(n: DbNotice): Notice {
   return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
 }
@@ -69,6 +73,7 @@ interface AppContextType {
   settings: Settings;
   monthlyGoals: MonthlyGoal[];
   ddays: DDay[];
+  schedules: ScheduleItem[];
   notices: Notice[];
   isAdmin: boolean;
   currentScreen: Screen;
@@ -97,6 +102,9 @@ interface AppContextType {
   addDDay: (title: string, targetDate: string) => Promise<void>;
   updateDDay: (id: string, updates: { title?: string; targetDate?: string }) => Promise<void>;
   deleteDDay: (id: string) => Promise<void>;
+  addSchedule: (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
+  updateSchedule: (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
+  deleteSchedule: (id: string) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
   updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
   deleteNotice: (id: string) => Promise<void>;
@@ -126,6 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
   const [ddays, setDDays] = useState<DDay[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const isAdmin = user?.id === ADMIN_USER_ID;
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
@@ -142,7 +151,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) {
       setTodos([]); setCategories([]); setSubcategories([]); setNotes([]);
-      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setNotices([]);
+      setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setSchedules([]); setNotices([]);
       setDataLoading(false);
       didSetInitialScreenRef.current = false;
       return;
@@ -157,14 +166,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       db.fetchSettings(user.id),
       db.fetchMonthlyGoals(user.id),
       db.fetchDDays(user.id),
+      db.fetchSchedules(user.id).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
       db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawNotices]) => {
+    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices]) => {
       setTodos(rawTodos.map(toTodo));
       setCategories(rawCats.map(toCategory));
       setSubcategories(rawSubcats.map(toSubcategory));
       setNotes(rawNotes.map(toNote));
       setMonthlyGoals(rawGoals.map(toMonthlyGoal));
       setDDays(rawDDays.map(toDDay));
+      setSchedules(rawSchedules.map(toSchedule));
       setNotices(rawNotices.map(toNotice));
       if (rawSettings) {
         const s = toSettings(rawSettings);
@@ -406,6 +417,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.deleteDDay(id);
   }, []);
 
+  // ── 일정 (날짜/시간이 정해진 이벤트 - 할 일과 별개) ───────────
+  function sortSchedules(list: ScheduleItem[]): ScheduleItem[] {
+    return [...list].sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? '99:99').localeCompare(b.startTime ?? '99:99'));
+  }
+
+  const addSchedule = useCallback(async (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => {
+    if (!user) return;
+    const row = await db.createSchedule(user.id, { title: fields.title, date: fields.date, start_time: fields.startTime ?? null, notes: fields.notes ?? null });
+    setSchedules(prev => sortSchedules([...prev, toSchedule(row)]));
+  }, [user]);
+
+  const updateSchedule = useCallback(async (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => {
+    setSchedules(prev => sortSchedules(prev.map(s => s.id === id ? { ...s, ...updates } : s)));
+    const dbUpdates: Parameters<typeof db.updateSchedule>[1] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.date !== undefined) dbUpdates.date = updates.date;
+    if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    await db.updateSchedule(id, dbUpdates);
+  }, []);
+
+  const deleteSchedule = useCallback(async (id: string) => {
+    setSchedules(prev => prev.filter(s => s.id !== id));
+    await db.deleteSchedule(id);
+  }, []);
+
   // ── 공지사항 ───────────────────────────────────────
   const addNotice = useCallback(async (title: string, content: string) => {
     const row = await db.createNotice(title, content);
@@ -439,7 +476,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      todos, categories, subcategories, notes, settings, monthlyGoals, ddays, notices, isAdmin, currentScreen, selectedDate, dataLoading,
+      todos, categories, subcategories, notes, settings, monthlyGoals, ddays, schedules, notices, isAdmin, currentScreen, selectedDate, dataLoading,
       addTodo, updateTodo, deleteTodo, toggleTodo, reorderTodos,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories,
@@ -447,6 +484,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
       addDDay, updateDDay, deleteDDay,
+      addSchedule, updateSchedule, deleteSchedule,
       addNotice, updateNotice, deleteNotice,
       setCurrentScreen, setSelectedDate,
     }}>
