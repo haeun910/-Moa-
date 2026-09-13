@@ -15,9 +15,17 @@ import { useApp } from '../context/AppContext';
 import { applyListDisplaySettings } from '../lib/listDisplay';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
-import type { Todo, DDay } from '../types';
+import type { Todo, DDay, Settings } from '../types';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+// 설정 > 달력 표시에서 고른 글자 크기에 맞춰 달력 칸의 일정 칩 스타일을 정함.
+// 글자가 커질수록 칸 하나에 다 들어가는 칩 개수는 줄이고 칸 높이를 늘림.
+const CALENDAR_CHIP_STYLES: Record<Settings['calendarTextSize'], { chip: string; cellMinH: string; maxChips: number; icon: number }> = {
+  small: { chip: 'text-[9px] md:text-[8px]', cellMinH: 'min-h-[82px]', maxChips: 4, icon: 7 },
+  medium: { chip: 'text-[11px] md:text-[10px]', cellMinH: 'min-h-[96px]', maxChips: 3, icon: 8 },
+  large: { chip: 'text-[13px] md:text-[12px]', cellMinH: 'min-h-[112px]', maxChips: 2, icon: 9 },
+};
 
 // 특정 날짜로 옮기는 작은 팝오버 버튼 (저장소로 보내기와 짝을 이루는, 홈 화면 전용 액션)
 function MoveToDateButton({ todo, onMove }: { todo: Todo; onMove: (date: string) => void }) {
@@ -93,6 +101,7 @@ export default function TodayPage() {
     end: endOfWeek(endOfMonth(viewMonth)),
   });
   const weekCount = Math.ceil(days.length / 7);
+  const chipStyle = CALENDAR_CHIP_STYLES[settings.calendarTextSize];
 
   // 달력 칸/D-Day 계산은 전체 todos를 그대로 쓰고, 아래 목록(패널)에만 설정의
   // "목록 표시" 옵션(정렬/완료 숨기기/카테고리 표시 여부)을 적용
@@ -421,12 +430,12 @@ export default function TodayPage() {
                       completed: t.completed,
                     })),
                   ];
-                  const visibleChips = chips.slice(0, 3);
+                  const visibleChips = chips.slice(0, chipStyle.maxChips);
                   const overflowCount = chips.length - visibleChips.length;
 
                   return (
                     <button key={dateStr} onClick={() => handleDayClick(dateStr)}
-                      className={`relative flex flex-col items-start min-h-[82px] md:min-h-0 overflow-hidden p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
+                      className={`relative flex flex-col items-start ${chipStyle.cellMinH} md:min-h-0 overflow-hidden p-1.5 border-r border-b border-gray-100 dark:border-gray-800 transition-colors text-left ${
                         inMonth ? '' : 'opacity-25'
                       } ${isSelected ? 'bg-leaf-50 dark:bg-leaf-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'}`}
                     >
@@ -443,17 +452,17 @@ export default function TodayPage() {
                           <div
                             key={chip.key}
                             title={chip.title}
-                            className={`w-full flex items-center gap-0.5 text-[9px] md:text-[8px] leading-tight px-1 py-[1px] rounded-sm ${
+                            className={`w-full flex items-center gap-0.5 ${chipStyle.chip} leading-tight px-1 py-[1px] rounded-sm ${
                               chip.completed ? 'opacity-50 line-through' : ''
                             }`}
                             style={{ backgroundColor: `${chip.color}22`, color: chip.color }}
                           >
-                            {chip.isDday && <Flag size={7} className="flex-shrink-0" strokeWidth={3} />}
+                            {chip.isDday && <Flag size={chipStyle.icon} className="flex-shrink-0" strokeWidth={3} />}
                             <span className={`truncate ${chip.isDday ? 'font-bold' : ''}`}>{chip.title}</span>
                           </div>
                         ))}
                         {overflowCount > 0 && (
-                          <p className="text-[9px] md:text-[8px] leading-tight px-1 text-gray-400 dark:text-gray-500 font-semibold">
+                          <p className={`${chipStyle.chip} leading-tight px-1 text-gray-400 dark:text-gray-500 font-semibold`}>
                             +{overflowCount}개
                           </p>
                         )}

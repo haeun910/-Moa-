@@ -42,6 +42,7 @@ export interface Settings {
   listSortBy: 'manual' | 'date' | 'name'; // 목록 정렬 기준
   hideCompleted: boolean; // 완료된 항목 목록에서 숨기기
   hiddenCategoryIds: string[]; // 목록에서 숨길 카테고리
+  calendarTextSize: 'small' | 'medium' | 'large'; // 홈 화면 월 달력 칸에 뜨는 일정 글자 크기
 }
 
 export type Screen = 'today' | 'calendar' | 'all' | 'notes' | 'settings' | 'categories' | 'terms' | 'privacy' | 'project';

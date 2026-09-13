@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, ListFilter, EyeOff, Milestone } from 'lucide-react';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, ListFilter, EyeOff, Milestone, CalendarDays } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
@@ -202,6 +202,36 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* 달력 표시 (홈 화면 월 달력에 뜨는 일정 글자 크기) */}
+        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div className="px-4 pt-4 pb-2 flex items-center gap-1.5">
+            <CalendarDays size={13} className="text-gray-400" />
+            <h2 className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">달력 표시</h2>
+          </div>
+          <div className="px-4 pb-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1.5">홈 화면 달력 글자 크기</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ['small', '작게'],
+                ['medium', '보통'],
+                ['large', '크게'],
+              ] as [Settings['calendarTextSize'], string][]).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => updateSettings({ calendarTextSize: value })}
+                  className={`py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
+                    settings.calendarTextSize === value
+                      ? 'border-leaf-500 bg-leaf-50 dark:bg-leaf-900/20 text-leaf-600 dark:text-leaf-400'
+                      : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* Rows */}
