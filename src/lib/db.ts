@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbNotice, AdminStats } from './supabase';
+import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice, AdminStats } from './supabase';
 
 // ────────────────────────────────────────────────
 // 관리자 통계 (관리자 계정만 실제 값을 받을 수 있음 - DB 함수에서 강제)
@@ -46,7 +46,7 @@ export async function deleteNotice(id: string): Promise<void> {
 // 계정 삭제 - 본인 데이터 전체 삭제
 // ────────────────────────────────────────────────
 export async function deleteAllUserData(userId: string): Promise<void> {
-  const tables = ['todos', 'subcategories', 'categories', 'notes', 'monthly_goals', 'ddays', 'user_settings'] as const;
+  const tables = ['todos', 'subcategories', 'categories', 'notes', 'monthly_goals', 'ddays', 'schedules', 'user_settings'] as const;
   for (const table of tables) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId);
     if (error) throw error;
@@ -278,5 +278,42 @@ export async function updateDDay(id: string, updates: Partial<Pick<DbDDay, 'titl
 
 export async function deleteDDay(id: string): Promise<void> {
   const { error } = await supabase.from('ddays').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ────────────────────────────────────────────────
+// Schedules (날짜/시간이 정해진 일정 - 할 일과는 별개)
+// ────────────────────────────────────────────────
+export async function fetchSchedules(userId: string): Promise<DbSchedule[]> {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date')
+    .order('start_time', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createSchedule(
+  userId: string,
+  fields: { title: string; date: string; start_time?: string | null; notes?: string | null }
+): Promise<DbSchedule> {
+  const { data, error } = await supabase
+    .from('schedules')
+    .insert({ user_id: userId, ...fields })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedule, 'title' | 'date' | 'start_time' | 'notes'>>): Promise<void> {
+  const { error } = await supabase.from('schedules').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  const { error } = await supabase.from('schedules').delete().eq('id', id);
   if (error) throw error;
 }
