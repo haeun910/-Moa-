@@ -41,7 +41,7 @@ export default function NoteModal({ note, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
       onClick={handleBackdrop}
     >
-      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-slide-up motion-reduce:animate-none">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -49,6 +49,7 @@ export default function NoteModal({ note, onClose }: Props) {
           </h2>
           <button
             onClick={onClose}
+            aria-label="닫기"
             className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <X size={16} />
@@ -65,7 +66,7 @@ export default function NoteModal({ note, onClose }: Props) {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="메모 제목"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
             />
           </div>
           <div>
@@ -75,7 +76,7 @@ export default function NoteModal({ note, onClose }: Props) {
               onChange={e => setContent(e.target.value)}
               placeholder="내용을 입력하세요..."
               rows={10}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm resize-none"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm resize-none"
             />
           </div>
         </div>
@@ -100,7 +101,7 @@ export default function NoteModal({ note, onClose }: Props) {
           <button
             onClick={handleSave}
             disabled={!title.trim() && !content.trim()}
-            className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white transition-colors text-sm font-semibold"
+            className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 transition-colors text-sm font-semibold"
           >
             저장
           </button>

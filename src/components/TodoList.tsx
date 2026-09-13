@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   DndContext,
   closestCenter,
@@ -22,16 +22,16 @@ interface Props {
   todos: Todo[];
   onEdit: (todo: Todo) => void;
   getActions?: (todo: Todo) => React.ReactNode;
+  completeMovesToToday?: boolean;
 }
 
-export default function TodoList({ todos, onEdit, getActions }: Props) {
+export default function TodoList({ todos, onEdit, getActions, completeMovesToToday }: Props) {
   const { reorderTodos } = useApp();
-  const [localOrder, setLocalOrder] = useState<string[]>([]);
 
-  const orderedTodos = localOrder.length
-    ? localOrder.map(id => todos.find(t => t.id === id)!).filter(Boolean)
-    : todos;
-
+  // 드래그로 정렬한 순서를 컴포넌트 로컬 state(localOrder)에 따로 보관했었는데,
+  // 그 뒤로 항목이 추가/변경돼도 이 로컬 state는 갱신되지 않아서 새 항목이 화면에서
+  // 보이지 않고 사라진 것처럼 되는 버그가 있었음. reorderTodos가 이미 context의
+  // todos 상태를 정렬된 순서로 동기 반영하므로, 항상 props로 받은 todos를 그대로 사용.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
@@ -41,11 +41,10 @@ export default function TodoList({ todos, onEdit, getActions }: Props) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const ids = orderedTodos.map(t => t.id);
+    const ids = todos.map(t => t.id);
     const oldIndex = ids.indexOf(active.id as string);
     const newIndex = ids.indexOf(over.id as string);
     const newIds = arrayMove(ids, oldIndex, newIndex);
-    setLocalOrder(newIds);
     reorderTodos(newIds);
   }
 
@@ -56,9 +55,9 @@ export default function TodoList({ todos, onEdit, getActions }: Props) {
       modifiers={[restrictToVerticalAxis]}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext items={orderedTodos.map(t => t.id)} strategy={verticalListSortingStrategy}>
-        {orderedTodos.map(todo => (
-          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} />
+      <SortableContext items={todos.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        {todos.map(todo => (
+          <SortableTodoItem key={todo.id} todo={todo} onEdit={onEdit} actions={getActions?.(todo)} completeMovesToToday={completeMovesToToday} />
         ))}
       </SortableContext>
     </DndContext>
