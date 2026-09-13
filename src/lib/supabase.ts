@@ -41,6 +41,7 @@ export interface DbSubcategory {
   user_id: string;
   category_id: string;
   name: string;
+  notes: string | null;
   sort_order: number;
   created_at: string;
 }

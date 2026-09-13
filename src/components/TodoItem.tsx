@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Clock, Flag } from 'lucide-react';
+import { Check, Trash2, Clock, Flag, StickyNote } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { Todo } from '../types';
 import { useApp } from '../context/AppContext';
@@ -117,7 +117,7 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               {todo.title}
             </span>
           )}
-          {(todo.startTime || todo.dueDate) && (
+          {(todo.startTime || todo.dueDate || todo.notes) && (
             <div className="flex items-center gap-2 mt-0.5 cursor-pointer" onClick={handleTitleClick}>
               {todo.startTime && (
                 <span className="flex items-center gap-0.5 text-[11px] text-leaf-500 dark:text-leaf-400 font-medium">
@@ -131,6 +131,12 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
                 }`}>
                   <Flag size={10} />
                   {format(parseISO(todo.dueDate), 'M/d')} 마감
+                </span>
+              )}
+              {todo.notes && (
+                <span className="flex items-center gap-0.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium" title={todo.notes}>
+                  <StickyNote size={10} />
+                  메모
                 </span>
               )}
             </div>

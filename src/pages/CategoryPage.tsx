@@ -9,22 +9,101 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { useApp } from '../context/AppContext';
-import type { Category } from '../types';
+import type { Category, Subcategory } from '../types';
 
-// 카테고리 하나의 하위카테고리 목록을 이름 변경/삭제/추가할 수 있게 관리.
-// (순서는 만든 순서 그대로 - 드래그 재정렬은 지원하지 않음)
+// 하위카테고리 한 줄: 드래그로 순서를 바꿀 수 있음
+function SortableSubcategoryRow({
+  sc, editing, editName, editNotes, confirmDelete,
+  onStartEdit, onEditName, onEditNotes, onSaveEdit, onCancelEdit, onDelete, onCancelDelete,
+}: {
+  sc: Subcategory;
+  editing: boolean;
+  editName: string;
+  editNotes: string;
+  confirmDelete: boolean;
+  onStartEdit: () => void;
+  onEditName: (v: string) => void;
+  onEditNotes: (v: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+  onCancelDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sc.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  if (editing) {
+    return (
+      <div ref={setNodeRef} style={style} className="py-1.5 space-y-2">
+        <input
+          autoFocus
+          value={editName}
+          onChange={e => onEditName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onSaveEdit(); if (e.key === 'Escape') onCancelEdit(); }}
+          className="w-full px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
+        />
+        <textarea
+          value={editNotes}
+          onChange={e => onEditNotes(e.target.value)}
+          placeholder="메모 (저장소 화면에서만 보여요, 선택)"
+          rows={2}
+          className="w-full px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-1 focus:ring-leaf-400 placeholder-gray-400"
+        />
+        <div className="flex gap-1.5">
+          <button onClick={onCancelEdit} className="flex-1 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-400">취소</button>
+          <button onClick={onSaveEdit} className="flex-1 py-1.5 rounded-lg bg-leaf-300 text-leaf-800 text-xs font-semibold">저장</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-2 py-1 ${isDragging ? 'opacity-50' : ''}`}>
+      <span {...listeners} {...attributes} className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing touch-none flex-shrink-0">
+        <GripVertical size={13} />
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm text-gray-600 dark:text-gray-300 truncate">{sc.name}</span>
+        {sc.notes && <span className="block text-[11px] text-gray-400 dark:text-gray-500 truncate">{sc.notes}</span>}
+      </span>
+      <button onClick={onStartEdit} aria-label={`${sc.name} 편집`}
+        className="text-gray-400 hover:text-leaf-500 transition-colors p-1 flex-shrink-0">
+        <Edit2 size={12} />
+      </button>
+      {confirmDelete ? (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={onCancelDelete} className="text-[10px] px-1.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
+          <button onClick={onDelete} className="text-[10px] px-1.5 py-1 rounded-md bg-red-500 text-white font-medium">삭제</button>
+        </div>
+      ) : (
+        <button onClick={onDelete} aria-label={`${sc.name} 삭제`}
+          className="text-gray-400 hover:text-red-500 transition-colors p-1 flex-shrink-0">
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// 카테고리 하나의 하위카테고리 목록을 이름/메모 변경·삭제·추가·순서 변경(드래그)할 수 있게 관리.
 function SubcategoryManager({ categoryId }: { categoryId: string }) {
-  const { subcategories, addSubcategory, updateSubcategory, deleteSubcategory } = useApp();
+  const { subcategories, addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories } = useApp();
   const list = subcategories.filter(s => s.categoryId === categoryId);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editNotes, setEditNotes] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
 
-  function startEdit(id: string, name: string) { setEditingId(id); setEditName(name); }
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  );
+
+  function startEdit(sc: Subcategory) { setEditingId(sc.id); setEditName(sc.name); setEditNotes(sc.notes ?? ''); setConfirmDeleteId(null); }
   async function saveEdit() {
-    if (editingId && editName.trim()) await updateSubcategory(editingId, { name: editName.trim() });
+    if (editingId && editName.trim()) await updateSubcategory(editingId, { name: editName.trim(), notes: editNotes.trim() || null });
     setEditingId(null);
   }
   async function handleAdd() {
@@ -33,47 +112,40 @@ function SubcategoryManager({ categoryId }: { categoryId: string }) {
     await addSubcategory(categoryId, name);
     setNewName(''); setAdding(false);
   }
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = list.findIndex(s => s.id === active.id);
+    const newIndex = list.findIndex(s => s.id === over.id);
+    reorderSubcategories(arrayMove(list, oldIndex, newIndex).map(s => s.id));
+  }
 
   return (
     <div className="pl-9 pr-2 pb-3 space-y-1.5">
       {list.length === 0 && !adding && (
         <p className="text-xs text-gray-400 dark:text-gray-600 py-1">하위카테고리가 없어요</p>
       )}
-      {list.map(sc => (
-        <div key={sc.id} className="flex items-center gap-2 py-1">
-          {editingId === sc.id ? (
-            <>
-              <input
-                autoFocus
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }}
-                onBlur={saveEdit}
-                className="flex-1 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-leaf-400"
-              />
-            </>
-          ) : (
-            <>
-              <span className="flex-1 text-sm text-gray-600 dark:text-gray-300 truncate">{sc.name}</span>
-              <button onClick={() => startEdit(sc.id, sc.name)} aria-label={`${sc.name} 이름 변경`}
-                className="text-gray-400 hover:text-leaf-500 transition-colors p-1">
-                <Edit2 size={12} />
-              </button>
-              {confirmDeleteId === sc.id ? (
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setConfirmDeleteId(null)} className="text-[10px] px-1.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500">취소</button>
-                  <button onClick={() => { deleteSubcategory(sc.id); setConfirmDeleteId(null); }} className="text-[10px] px-1.5 py-1 rounded-md bg-red-500 text-white font-medium">삭제</button>
-                </div>
-              ) : (
-                <button onClick={() => setConfirmDeleteId(sc.id)} aria-label={`${sc.name} 삭제`}
-                  className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                  <Trash2 size={12} />
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={list.map(s => s.id)} strategy={verticalListSortingStrategy}>
+          {list.map(sc => (
+            <SortableSubcategoryRow
+              key={sc.id}
+              sc={sc}
+              editing={editingId === sc.id}
+              editName={editName}
+              editNotes={editNotes}
+              confirmDelete={confirmDeleteId === sc.id}
+              onStartEdit={() => startEdit(sc)}
+              onEditName={setEditName}
+              onEditNotes={setEditNotes}
+              onSaveEdit={saveEdit}
+              onCancelEdit={() => setEditingId(null)}
+              onDelete={() => { if (confirmDeleteId === sc.id) { deleteSubcategory(sc.id); setConfirmDeleteId(null); } else setConfirmDeleteId(sc.id); }}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
       {adding ? (
         <div className="flex items-center gap-2 py-1">
           <input

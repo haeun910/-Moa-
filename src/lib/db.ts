@@ -109,7 +109,7 @@ export async function createSubcategory(userId: string, categoryId: string, name
   return data;
 }
 
-export async function updateSubcategory(id: string, updates: Partial<Pick<DbSubcategory, 'name' | 'sort_order'>>): Promise<void> {
+export async function updateSubcategory(id: string, updates: Partial<Pick<DbSubcategory, 'name' | 'notes' | 'sort_order'>>): Promise<void> {
   const { error } = await supabase.from('subcategories').update(updates).eq('id', id);
   if (error) throw error;
 }
