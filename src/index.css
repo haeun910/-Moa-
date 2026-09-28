@@ -11,24 +11,27 @@ html, body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* 모바일에서 앱처럼 고정: 가로로 밀리거나, 끝에서 튕기거나(당겨서 새로고침 포함),
-     가로 모드 전환 시 글자가 멋대로 커지는 것을 막음 */
-  overflow-x: hidden;
-  overscroll-behavior: none;
+  /* 가로 모드 전환 시 글자가 멋대로 커지는 것을 막음 */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 두 번 탭해서 확대되는 것 막기 (스크롤/탭은 그대로 동작) */
+/* 모바일에서 앱처럼 고정: 두 번 탭 확대 방지 + 화면 끝에서 튕기거나 당겨서 새로고침 방지.
+   주의: html/body에 overflow-x: hidden을 주면 body의 세로 overflow가 auto로 바뀌어 body 자체가
+   스크롤 영역이 되는데, 아이폰(WebKit)에서는 이 때문에 페이지 전체 스크롤(저장소/설정 등)이
+   손가락으로 움직이지 않는 문제가 있었음 → html/body의 overflow는 건드리지 않음 */
 html {
   touch-action: manipulation;
+  overscroll-behavior-y: none;
 }
 
 #root {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  /* 가로로 밀리는 것 방지. clip은 hidden과 달리 스크롤 영역을 만들지 않아 세로 스크롤에 영향 없음 */
+  overflow-x: clip;
 }
 
 .scrollbar-hide::-webkit-scrollbar { display: none; }
