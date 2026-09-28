@@ -6,6 +6,7 @@ import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format } from 'date-fns';
 import { newSeriesId } from '../lib/recurrence';
+import { showSaveError, markSaveErrorHandled } from '../lib/toast';
 import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
@@ -81,6 +82,8 @@ interface AppContextType {
   currentScreen: Screen;
   selectedDate: string;
   dataLoading: boolean;
+  loadError: boolean; // 처음 불러오기 실패
+  retryLoad: () => void;
   addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<void>;
   // existingId가 있으면 그 할 일(이미 있는 항목)도 같은 반복으로 묶음. dates는 새로 만들 날짜만 (기존 항목 날짜 제외)
   addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => Promise<void>;
@@ -131,6 +134,21 @@ function inSeries(item: { seriesId?: string | null; date: string | null }, serie
   return fromDate ? !!item.date && item.date >= fromDate : true;
 }
 
+// 서버에서 다시 불러올 수 있는 데이터 종류
+type Resource = 'todos' | 'categories' | 'subcategories' | 'notes' | 'settings' | 'monthlyGoals' | 'ddays' | 'schedules' | 'notices';
+
+// 실시간 동기화 대상 테이블 → 다시 불러올 데이터 종류 (notices는 모든 사용자 공용이라 따로 처리)
+const REALTIME_TABLES: [string, Resource][] = [
+  ['todos', 'todos'],
+  ['categories', 'categories'],
+  ['subcategories', 'subcategories'],
+  ['notes', 'notes'],
+  ['monthly_goals', 'monthlyGoals'],
+  ['ddays', 'ddays'],
+  ['schedules', 'schedules'],
+  ['user_settings', 'settings'],
+];
+
 const AppContext = createContext<AppContextType | null>(null);
 
 const DEFAULT_SETTINGS: Settings = {
@@ -159,8 +177,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentScreen, setCurrentScreen] = useState<Screen>('today');
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dataLoading, setDataLoading] = useState(true);
+  // 처음 불러오기가 실패하면(네트워크 등) 빈 화면 대신 "다시 시도" 화면을 보여주기 위함
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const retryLoad = useCallback(() => setReloadKey(k => k + 1), []);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+
+  // ── 서버에서 다시 불러오기 (여러 기기 동기화 / 저장 실패 시 원상복구에 공통 사용) ──
+  // 화면은 저장 전에 먼저 바뀌므로(낙관적 업데이트), 저장이 실패하면 서버 내용으로 다시 맞춤
+  const fetchersRef = useRef<Record<Resource, () => Promise<void>> | null>(null);
+  fetchersRef.current = user ? {
+    todos: async () => setTodos((await db.fetchTodos(user.id)).map(toTodo)),
+    categories: async () => setCategories((await db.fetchCategories(user.id)).map(toCategory)),
+    subcategories: async () => setSubcategories((await db.fetchSubcategories(user.id)).map(toSubcategory)),
+    notes: async () => setNotes((await db.fetchNotes(user.id)).map(toNote)),
+    settings: async () => { const s = await db.fetchSettings(user.id); if (s) setSettings(toSettings(s)); },
+    monthlyGoals: async () => setMonthlyGoals((await db.fetchMonthlyGoals(user.id)).map(toMonthlyGoal)),
+    ddays: async () => setDDays((await db.fetchDDays(user.id)).map(toDDay)),
+    schedules: async () => setSchedules((await db.fetchSchedules(user.id)).map(toSchedule)),
+    notices: async () => setNotices((await db.fetchNotices()).map(toNotice)),
+  } : null;
+
+  // 같은 종류를 짧은 시간에 여러 번 요청하면 한 번만 불러옴
+  // (예: 반복으로 한 번에 100개를 만들면 실시간 알림도 100번 오기 때문)
+  const resyncTimersRef = useRef<Partial<Record<Resource, ReturnType<typeof setTimeout>>>>({});
+  const resync = useCallback((kind: Resource, delayMs = 300) => {
+    clearTimeout(resyncTimersRef.current[kind]);
+    resyncTimersRef.current[kind] = setTimeout(() => {
+      fetchersRef.current?.[kind]().catch(err => console.error(`resync ${kind} failed`, err));
+    }, delayMs);
+  }, []);
+  const resyncAll = useCallback(() => {
+    for (const kind of Object.keys(fetchersRef.current ?? {}) as Resource[]) resync(kind, 0);
+  }, [resync]);
+
+  // 실시간 "삭제" 알림은 user_id로 거를 수 없어서(Supabase 제약) 내 화면에 있는 id인지로 판단
+  const localIdsRef = useRef<Partial<Record<Resource, { id: string }[]>>>({});
+  localIdsRef.current = { todos, categories, subcategories, notes, monthlyGoals, ddays, schedules, notices };
   // 앱 진입 시 defaultScreen으로 딱 한 번만 이동하기 위한 플래그.
   // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
   //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
@@ -177,6 +231,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     setDataLoading(true);
+    setLoadError(false);
     Promise.all([
       db.fetchTodos(user.id),
       db.fetchCategories(user.id),
@@ -204,11 +259,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           didSetInitialScreenRef.current = true;
         }
       }
+    }).catch(err => {
+      // 예전엔 실패해도 그냥 빈 화면이 떠서 "데이터가 사라졌다"고 오해할 수 있었음
+      console.error('initial load failed', err);
+      setLoadError(true);
     }).finally(() => setDataLoading(false));
     // user.id만 의존성으로 둬서, 토큰 자동 갱신처럼 user "객체"만 새로 생성되고
     // 실제 로그인 계정은 그대로인 경우에는 이 무거운 재조회 + 화면 이동이 일어나지 않게 함
+    // (reloadKey는 "다시 시도" 버튼용)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, reloadKey]);
 
   // ── 테마 적용 ───────────────────────────────────────────
   useEffect(() => {
@@ -228,37 +288,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const channel = supabase
-      .channel(`user-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchTodos(user.id);
-          setTodos(rows.map(toTodo));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchCategories(user.id);
-          setCategories(rows.map(toCategory));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchSubcategories(user.id);
-          setSubcategories(rows.map(toSubcategory));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${user.id}` },
-        async () => {
-          const rows = await db.fetchNotes(user.id);
-          setNotes(rows.map(toNote));
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notices' },
-        async () => {
-          const rows = await db.fetchNotices().catch(() => []);
-          setNotices(rows.map(toNotice));
-        })
-      .subscribe();
+    // 다른 기기(폰 ↔ PC)에서 바꾼 내용을 바로 반영. 모든 데이터 종류를 구독함.
+    let channel = supabase.channel(`user-${user.id}`);
+    for (const [table, kind] of REALTIME_TABLES) {
+      // 추가/수정: 내 데이터만 오도록 user_id로 거름
+      channel = channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: `user_id=eq.${user.id}` }, () => resync(kind))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter: `user_id=eq.${user.id}` }, () => resync(kind))
+        // 삭제: Supabase는 삭제 알림을 user_id로 거르지 못해서, 지워진 id가 내 화면에 있을 때만 다시 불러옴
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table }, payload => {
+          const id = (payload.old as { id?: string } | null)?.id;
+          if (id && localIdsRef.current[kind]?.some(item => item.id === id)) resync(kind);
+        });
+    }
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'notices' }, () => resync('notices'));
+
+    // 연결이 끊겼다가 다시 붙으면(폰 잠금 해제, 네트워크 전환 등) 그 사이 놓친 변경을 전부 다시 불러옴
+    let subscribedOnce = false;
+    channel.subscribe(status => {
+      if (status !== 'SUBSCRIBED') return;
+      if (subscribedOnce) resyncAll();
+      subscribedOnce = true;
+    });
 
     channelRef.current = channel;
     return () => { channel.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // 앱으로 다시 돌아오거나(백그라운드 → 화면 켜짐) 인터넷이 다시 연결되면 최신 내용으로 맞춤.
+  // 모바일은 백그라운드에서 실시간 연결이 끊기는 경우가 많아서 이게 없으면 다른 기기 변경이 늦게 보임
+  useEffect(() => {
+    if (!user) return;
+    let lastSync = Date.now();
+    const syncIfStale = () => {
+      if (Date.now() - lastSync < 5000) return; // 너무 자주 불러오지 않도록
+      lastSync = Date.now();
+      resyncAll();
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') syncIfStale(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', syncIfStale);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', syncIfStale);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -569,18 +643,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.upsertSettings(user.id, dbUpdates);
   }, [user]);
 
+  // ── 저장 실패 처리 ─────────────────────────────────────
+  // 모든 추가/수정/삭제를 감싸서, 실패하면 알림을 띄우고 관련 데이터를 서버 내용으로 다시 맞춤.
+  // 추가(create)는 실패를 다시 던져서 입력 창이 닫히지 않고 쓰던 내용이 남아 있게 함.
+  function guard<A extends unknown[]>(fn: (...args: A) => Promise<void>, kinds: Resource[], rethrow = false) {
+    return async (...args: A) => {
+      try {
+        await fn(...args);
+      } catch (err) {
+        console.error('save failed', err);
+        showSaveError();
+        for (const kind of kinds) resync(kind, 0);
+        if (rethrow) throw markSaveErrorHandled(err);
+      }
+    };
+  }
+  const T: Resource[] = ['todos'];
+  const S: Resource[] = ['schedules'];
+
   return (
     <AppContext.Provider value={{
       todos, categories, subcategories, notes, settings, monthlyGoals, ddays, schedules, notices, isAdmin, currentScreen, selectedDate, dataLoading,
-      addTodo, addTodoSeries, updateTodoSeries, deleteTodoSeries, updateTodo, deleteTodo, toggleTodo, reorderTodos,
-      addCategory, updateCategory, deleteCategory, reorderCategories,
-      addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories,
-      addNote, updateNote, deleteNote,
-      updateSettings,
-      addMonthlyGoal, updateMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
-      addDDay, updateDDay, deleteDDay,
-      addSchedule, updateSchedule, deleteSchedule, addScheduleSeries, updateScheduleSeries, deleteScheduleSeries,
-      addNotice, updateNotice, deleteNotice,
+      loadError, retryLoad,
+      addTodo: guard(addTodo, T, true),
+      addTodoSeries: guard(addTodoSeries, T, true),
+      updateTodoSeries: guard(updateTodoSeries, T),
+      deleteTodoSeries: guard(deleteTodoSeries, T),
+      updateTodo: guard(updateTodo, T),
+      deleteTodo: guard(deleteTodo, T),
+      toggleTodo: guard(toggleTodo, T),
+      reorderTodos: guard(reorderTodos, T),
+      addCategory: guard(addCategory, ['categories'], true),
+      updateCategory: guard(updateCategory, ['categories']),
+      deleteCategory: guard(deleteCategory, ['categories', 'subcategories', 'todos']),
+      reorderCategories: guard(reorderCategories, ['categories']),
+      addSubcategory: guard(addSubcategory, ['subcategories'], true),
+      updateSubcategory: guard(updateSubcategory, ['subcategories']),
+      deleteSubcategory: guard(deleteSubcategory, ['subcategories', 'todos']),
+      reorderSubcategories: guard(reorderSubcategories, ['subcategories']),
+      addNote: guard(addNote, ['notes'], true),
+      updateNote: guard(updateNote, ['notes']),
+      deleteNote: guard(deleteNote, ['notes']),
+      updateSettings: guard(updateSettings, ['settings']),
+      addMonthlyGoal: guard(addMonthlyGoal, ['monthlyGoals'], true),
+      updateMonthlyGoal: guard(updateMonthlyGoal, ['monthlyGoals']),
+      toggleMonthlyGoal: guard(toggleMonthlyGoal, ['monthlyGoals']),
+      deleteMonthlyGoal: guard(deleteMonthlyGoal, ['monthlyGoals']),
+      addDDay: guard(addDDay, ['ddays'], true),
+      updateDDay: guard(updateDDay, ['ddays']),
+      deleteDDay: guard(deleteDDay, ['ddays']),
+      addSchedule: guard(addSchedule, S, true),
+      updateSchedule: guard(updateSchedule, S),
+      deleteSchedule: guard(deleteSchedule, S),
+      addScheduleSeries: guard(addScheduleSeries, S, true),
+      updateScheduleSeries: guard(updateScheduleSeries, S),
+      deleteScheduleSeries: guard(deleteScheduleSeries, S),
+      addNotice: guard(addNotice, ['notices'], true),
+      updateNotice: guard(updateNotice, ['notices']),
+      deleteNotice: guard(deleteNotice, ['notices']),
       setCurrentScreen, setSelectedDate,
     }}>
       {children}
