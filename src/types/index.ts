@@ -32,8 +32,15 @@ export interface Note {
   id: string;
   title: string;
   content: string;
+  folderId: string | null; // 메모 폴더 (없으면 "폴더 없음")
+  pinned: boolean; // 목록 맨 위에 고정
   createdAt: string;
   updatedAt: string;
+}
+
+export interface NoteFolder {
+  id: string;
+  name: string;
 }
 
 export interface Settings {

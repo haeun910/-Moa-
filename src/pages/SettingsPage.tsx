@@ -133,7 +133,7 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
 }
 
 export default function SettingsPage() {
-  const { settings, updateSettings, categories, subcategories, todos, notes, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
+  const { settings, updateSettings, categories, subcategories, todos, notes, noteFolders, monthlyGoals, ddays, isAdmin, setCurrentScreen } = useApp();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -161,7 +161,7 @@ export default function SettingsPage() {
   function handleExport() {
     const payload = {
       exportedAt: new Date().toISOString(),
-      todos, categories, subcategories, notes, monthlyGoals, ddays,
+      todos, categories, subcategories, notes, noteFolders, monthlyGoals, ddays,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ADMIN_USER_ID } from '../lib/supabase';
-import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice } from '../lib/supabase';
+import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbNoteFolder, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice } from '../lib/supabase';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format } from 'date-fns';
 import { newSeriesId } from '../lib/recurrence';
 import { showSaveError, markSaveErrorHandled } from '../lib/toast';
-import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, Notice } from '../types';
+import type { Todo, Category, Subcategory, Note, NoteFolder, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
 function toTodo(t: DbTodo): Todo {
@@ -36,7 +36,11 @@ function toSubcategory(s: DbSubcategory): Subcategory {
 }
 
 function toNote(n: DbNote): Note {
-  return { id: n.id, title: n.title, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at };
+  return { id: n.id, title: n.title, content: n.content, folderId: n.folder_id ?? null, pinned: n.pinned ?? false, createdAt: n.created_at, updatedAt: n.updated_at };
+}
+
+function toNoteFolder(f: DbNoteFolder): NoteFolder {
+  return { id: f.id, name: f.name };
 }
 
 function toMonthlyGoal(g: DbMonthlyGoal): MonthlyGoal {
@@ -73,6 +77,7 @@ interface AppContextType {
   categories: Category[];
   subcategories: Subcategory[];
   notes: Note[];
+  noteFolders: NoteFolder[];
   settings: Settings;
   monthlyGoals: MonthlyGoal[];
   ddays: DDay[];
@@ -101,9 +106,13 @@ interface AppContextType {
   updateSubcategory: (id: string, updates: { name?: string; notes?: string | null }) => Promise<void>;
   deleteSubcategory: (id: string) => Promise<void>;
   reorderSubcategories: (orderedIds: string[]) => Promise<void>;
-  addNote: (title: string, content: string) => Promise<void>;
-  updateNote: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
+  // 만든 메모를 돌려줌 (메모 편집기에서 새 메모를 만든 뒤 이어서 자동 저장하려면 id가 필요)
+  addNote: (title: string, content: string, folderId?: string | null) => Promise<Note | undefined>;
+  updateNote: (id: string, updates: NoteUpdates) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  addNoteFolder: (name: string) => Promise<NoteFolder | undefined>;
+  renameNoteFolder: (id: string, name: string) => Promise<void>;
+  deleteNoteFolder: (id: string) => Promise<void>;
   updateSettings: (updates: Partial<Settings>) => Promise<void>;
   addMonthlyGoal: (month: string, title: string) => Promise<void>;
   updateMonthlyGoal: (id: string, updates: { title?: string }) => Promise<void>;
@@ -126,6 +135,8 @@ interface AppContextType {
 }
 
 // 반복 할 일 묶음 수정 시 함께 바꿀 수 있는 항목 (날짜/완료/마감일은 회차마다 다르므로 제외)
+export type NoteUpdates = Partial<Pick<Note, 'title' | 'content' | 'folderId' | 'pinned'>>;
+
 export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'notes'>>;
 
 // fromDate가 있으면 그 날짜(포함) 이후 회차만, 없으면 반복 전체 (DB 쿼리와 같은 기준)
@@ -135,7 +146,7 @@ function inSeries(item: { seriesId?: string | null; date: string | null }, serie
 }
 
 // 서버에서 다시 불러올 수 있는 데이터 종류
-type Resource = 'todos' | 'categories' | 'subcategories' | 'notes' | 'settings' | 'monthlyGoals' | 'ddays' | 'schedules' | 'notices';
+type Resource = 'todos' | 'categories' | 'subcategories' | 'notes' | 'noteFolders' | 'settings' | 'monthlyGoals' | 'ddays' | 'schedules' | 'notices';
 
 // 실시간 동기화 대상 테이블 → 다시 불러올 데이터 종류 (notices는 모든 사용자 공용이라 따로 처리)
 const REALTIME_TABLES: [string, Resource][] = [
@@ -143,6 +154,7 @@ const REALTIME_TABLES: [string, Resource][] = [
   ['categories', 'categories'],
   ['subcategories', 'subcategories'],
   ['notes', 'notes'],
+  ['note_folders', 'noteFolders'],
   ['monthly_goals', 'monthlyGoals'],
   ['ddays', 'ddays'],
   ['schedules', 'schedules'],
@@ -168,6 +180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [noteFolders, setNoteFolders] = useState<NoteFolder[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoal[]>([]);
   const [ddays, setDDays] = useState<DDay[]>([]);
@@ -192,6 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     categories: async () => setCategories((await db.fetchCategories(user.id)).map(toCategory)),
     subcategories: async () => setSubcategories((await db.fetchSubcategories(user.id)).map(toSubcategory)),
     notes: async () => setNotes((await db.fetchNotes(user.id)).map(toNote)),
+    noteFolders: async () => setNoteFolders((await db.fetchNoteFolders(user.id)).map(toNoteFolder)),
     settings: async () => { const s = await db.fetchSettings(user.id); if (s) setSettings(toSettings(s)); },
     monthlyGoals: async () => setMonthlyGoals((await db.fetchMonthlyGoals(user.id)).map(toMonthlyGoal)),
     ddays: async () => setDDays((await db.fetchDDays(user.id)).map(toDDay)),
@@ -214,7 +228,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // 실시간 "삭제" 알림은 user_id로 거를 수 없어서(Supabase 제약) 내 화면에 있는 id인지로 판단
   const localIdsRef = useRef<Partial<Record<Resource, { id: string }[]>>>({});
-  localIdsRef.current = { todos, categories, subcategories, notes, monthlyGoals, ddays, schedules, notices };
+  localIdsRef.current = { todos, categories, subcategories, notes, noteFolders, monthlyGoals, ddays, schedules, notices };
   // 앱 진입 시 defaultScreen으로 딱 한 번만 이동하기 위한 플래그.
   // (예전엔 user 객체 참조가 바뀔 때마다(토큰 자동 갱신 등) 이 효과가 다시 돌면서
   //  사용자가 어느 화면에 있든 자꾸 홈 화면으로 튕기는 버그가 있었음)
@@ -223,7 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── 초기 데이터 로드 ────────────────────────────────────
   useEffect(() => {
     if (!user) {
-      setTodos([]); setCategories([]); setSubcategories([]); setNotes([]);
+      setTodos([]); setCategories([]); setSubcategories([]); setNotes([]); setNoteFolders([]);
       setSettings(DEFAULT_SETTINGS); setMonthlyGoals([]); setDDays([]); setSchedules([]); setNotices([]);
       setDataLoading(false);
       didSetInitialScreenRef.current = false;
@@ -242,11 +256,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       db.fetchDDays(user.id),
       db.fetchSchedules(user.id).catch(() => []), // schedules 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
       db.fetchNotices().catch(() => []), // notices 테이블이 아직 없어도(마이그레이션 전) 나머지는 정상 로드되도록
-    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices]) => {
+      db.fetchNoteFolders(user.id).catch(() => []), // note_folders 테이블이 아직 없어도(014 전) 나머지는 정상 로드되도록
+    ]).then(([rawTodos, rawCats, rawSubcats, rawNotes, rawSettings, rawGoals, rawDDays, rawSchedules, rawNotices, rawNoteFolders]) => {
       setTodos(rawTodos.map(toTodo));
       setCategories(rawCats.map(toCategory));
       setSubcategories(rawSubcats.map(toSubcategory));
       setNotes(rawNotes.map(toNote));
+      setNoteFolders(rawNoteFolders.map(toNoteFolder));
       setMonthlyGoals(rawGoals.map(toMonthlyGoal));
       setDDays(rawDDays.map(toDDay));
       setSchedules(rawSchedules.map(toSchedule));
@@ -497,20 +513,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Notes ────────────────────────────────────────────────
-  const addNote = useCallback(async (title: string, content: string) => {
-    if (!user) return;
-    const row = await db.createNote(user.id, title, content);
-    setNotes(prev => [toNote(row), ...prev]);
+  const addNote = useCallback(async (title: string, content: string, folderId: string | null = null): Promise<Note | undefined> => {
+    if (!user) return undefined;
+    const note = toNote(await db.createNote(user.id, title, content, folderId));
+    setNotes(prev => [note, ...prev]);
+    return note;
   }, [user]);
 
-  const updateNote = useCallback(async (id: string, updates: { title?: string; content?: string }) => {
+  const updateNote = useCallback(async (id: string, updates: NoteUpdates) => {
     setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n));
-    await db.updateNote(id, updates);
+    const dbUpdates: Parameters<typeof db.updateNote>[1] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.content !== undefined) dbUpdates.content = updates.content;
+    if ('folderId' in updates) dbUpdates.folder_id = updates.folderId ?? null;
+    if (updates.pinned !== undefined) dbUpdates.pinned = updates.pinned;
+    await db.updateNote(id, dbUpdates);
   }, []);
 
   const deleteNote = useCallback(async (id: string) => {
     setNotes(prev => prev.filter(n => n.id !== id));
     await db.deleteNote(id);
+  }, []);
+
+  // ── 메모 폴더 ─────────────────────────────────────
+  const addNoteFolder = useCallback(async (name: string): Promise<NoteFolder | undefined> => {
+    if (!user) return undefined;
+    const folder = toNoteFolder(await db.createNoteFolder(user.id, name, noteFolders.length));
+    setNoteFolders(prev => [...prev, folder]);
+    return folder;
+  }, [user, noteFolders.length]);
+
+  const renameNoteFolder = useCallback(async (id: string, name: string) => {
+    setNoteFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f));
+    await db.updateNoteFolder(id, { name });
+  }, []);
+
+  // 폴더를 지워도 안의 메모는 남고 "폴더 없음"으로 이동 (DB도 on delete set null)
+  const deleteNoteFolder = useCallback(async (id: string) => {
+    setNoteFolders(prev => prev.filter(f => f.id !== id));
+    setNotes(prev => prev.map(n => n.folderId === id ? { ...n, folderId: null } : n));
+    await db.deleteNoteFolder(id);
   }, []);
 
   // ── Monthly Goals ────────────────────────────────
@@ -646,15 +688,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── 저장 실패 처리 ─────────────────────────────────────
   // 모든 추가/수정/삭제를 감싸서, 실패하면 알림을 띄우고 관련 데이터를 서버 내용으로 다시 맞춤.
   // 추가(create)는 실패를 다시 던져서 입력 창이 닫히지 않고 쓰던 내용이 남아 있게 함.
-  function guard<A extends unknown[]>(fn: (...args: A) => Promise<void>, kinds: Resource[], rethrow = false) {
-    return async (...args: A) => {
+  function guard<A extends unknown[], R>(fn: (...args: A) => Promise<R>, kinds: Resource[], rethrow = false) {
+    return async (...args: A): Promise<R | undefined> => {
       try {
-        await fn(...args);
+        return await fn(...args);
       } catch (err) {
         console.error('save failed', err);
         showSaveError();
         for (const kind of kinds) resync(kind, 0);
         if (rethrow) throw markSaveErrorHandled(err);
+        return undefined;
       }
     };
   }
@@ -663,7 +706,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      todos, categories, subcategories, notes, settings, monthlyGoals, ddays, schedules, notices, isAdmin, currentScreen, selectedDate, dataLoading,
+      todos, categories, subcategories, notes, noteFolders, settings, monthlyGoals, ddays, schedules, notices, isAdmin, currentScreen, selectedDate, dataLoading,
       loadError, retryLoad,
       addTodo: guard(addTodo, T, true),
       addTodoSeries: guard(addTodoSeries, T, true),
@@ -684,6 +727,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addNote: guard(addNote, ['notes'], true),
       updateNote: guard(updateNote, ['notes']),
       deleteNote: guard(deleteNote, ['notes']),
+      addNoteFolder: guard(addNoteFolder, ['noteFolders'], true),
+      renameNoteFolder: guard(renameNoteFolder, ['noteFolders']),
+      deleteNoteFolder: guard(deleteNoteFolder, ['noteFolders', 'notes']),
       updateSettings: guard(updateSettings, ['settings']),
       addMonthlyGoal: guard(addMonthlyGoal, ['monthlyGoals'], true),
       updateMonthlyGoal: guard(updateMonthlyGoal, ['monthlyGoals']),

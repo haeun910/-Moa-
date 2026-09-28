@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice, AdminStats } from './supabase';
+import type { DbCategory, DbSubcategory, DbTodo, DbNote, DbNoteFolder, DbSettings, DbMonthlyGoal, DbDDay, DbSchedule, DbNotice, AdminStats } from './supabase';
 
 // ────────────────────────────────────────────────
 // 관리자 통계 (관리자 계정만 실제 값을 받을 수 있음 - DB 함수에서 강제)
@@ -220,23 +220,57 @@ export async function fetchNotes(userId: string): Promise<DbNote[]> {
   return data ?? [];
 }
 
-export async function createNote(userId: string, title: string, content: string): Promise<DbNote> {
+export async function createNote(userId: string, title: string, content: string, folderId: string | null = null): Promise<DbNote> {
   const { data, error } = await supabase
     .from('notes')
-    .insert({ user_id: userId, title, content })
+    // folder_id는 폴더를 고른 경우에만 보냄 (014 마이그레이션 전에도 폴더 없는 메모는 저장되도록)
+    .insert({ user_id: userId, title, content, ...(folderId ? { folder_id: folderId } : {}) })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateNote(id: string, updates: Partial<Pick<DbNote, 'title' | 'content'>>): Promise<void> {
+export async function updateNote(id: string, updates: Partial<Pick<DbNote, 'title' | 'content' | 'folder_id' | 'pinned'>>): Promise<void> {
   const { error } = await supabase.from('notes').update(updates).eq('id', id);
   if (error) throw error;
 }
 
 export async function deleteNote(id: string): Promise<void> {
   const { error } = await supabase.from('notes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// 메모 폴더
+export async function fetchNoteFolders(userId: string): Promise<DbNoteFolder[]> {
+  const { data, error } = await supabase
+    .from('note_folders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('sort_order')
+    .order('created_at');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createNoteFolder(userId: string, name: string, sortOrder: number): Promise<DbNoteFolder> {
+  const { data, error } = await supabase
+    .from('note_folders')
+    .insert({ user_id: userId, name, sort_order: sortOrder })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateNoteFolder(id: string, updates: Partial<Pick<DbNoteFolder, 'name' | 'sort_order'>>): Promise<void> {
+  const { error } = await supabase.from('note_folders').update(updates).eq('id', id);
+  if (error) throw error;
+}
+
+// 폴더를 지워도 메모는 남음 (DB에서 folder_id가 null로 바뀜)
+export async function deleteNoteFolder(id: string): Promise<void> {
+  const { error } = await supabase.from('note_folders').delete().eq('id', id);
   if (error) throw error;
 }
 
