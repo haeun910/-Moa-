@@ -384,3 +384,30 @@ export async function deleteScheduleSeries(seriesId: string, fromDate: string | 
   const { error } = await seriesQuery(supabase.from('schedules').delete(), seriesId, fromDate);
   if (error) throw error;
 }
+
+// ────────────────────────────────────────────────
+// 의견 보내기 (사용자는 보내기만, 목록 조회/삭제는 관리자만 — RLS로 강제)
+// ────────────────────────────────────────────────
+export interface DbFeedback {
+  id: string;
+  user_id: string;
+  content: string;
+  app_version: string | null;
+  created_at: string;
+}
+
+export async function createFeedback(userId: string, content: string, appVersion: string): Promise<void> {
+  const { error } = await supabase.from('feedback').insert({ user_id: userId, content, app_version: appVersion });
+  if (error) throw error;
+}
+
+export async function fetchFeedback(): Promise<DbFeedback[]> {
+  const { data, error } = await supabase.from('feedback').select('*').order('created_at', { ascending: false }).limit(200);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function deleteFeedback(id: string): Promise<void> {
+  const { error } = await supabase.from('feedback').delete().eq('id', id);
+  if (error) throw error;
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, ListFilter, EyeOff, Milestone, CalendarDays } from 'lucide-react';
+import { ChevronRight, LogOut, Moon, Sun, Monitor, Bell, Tag, Info, FileDown, KeyRound, FileText, ShieldCheck, UserX, Download, CheckCircle2, BarChart3, ListFilter, EyeOff, Milestone, CalendarDays, BookOpen, MessageSquareHeart, Inbox } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
@@ -9,6 +9,9 @@ import DeleteAccountModal from '../components/DeleteAccountModal';
 import InstallInstructionsModal from '../components/InstallInstructionsModal';
 import ChangelogModal from '../components/ChangelogModal';
 import AdminStatsModal from '../components/AdminStatsModal';
+import OnboardingModal from '../components/OnboardingModal';
+import FeedbackModal from '../components/FeedbackModal';
+import FeedbackListModal from '../components/FeedbackListModal';
 import { APP_VERSION } from '../data/changelog';
 import type { Settings } from '../types';
 
@@ -27,6 +30,9 @@ export default function SettingsPage() {
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showAdminStats, setShowAdminStats] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [showFeedbackList, setShowFeedbackList] = useState(false);
   const { canPromptDirectly, isInstalled, promptInstall } = usePwaInstall();
 
   async function handleSignOut() { setSigningOut(true); await signOut(); }
@@ -366,9 +372,58 @@ export default function SettingsPage() {
           </button>
         </section>
 
+        {/* 도움말 / 의견 보내기 */}
+        <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+          <button
+            onClick={() => setShowGuide(true)}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                <BookOpen size={15} className="text-leaf-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">사용 가이드</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">처음 안내를 다시 볼 수 있어요</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-400" />
+          </button>
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                <MessageSquareHeart size={15} className="text-leaf-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">의견 보내기</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">불편한 점, 원하는 기능을 알려주세요</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-400" />
+          </button>
+        </section>
+
         {/* 관리자 전용 */}
         {isAdmin && (
-          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
+            <button
+              onClick={() => setShowFeedbackList(true)}
+              className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-leaf-100 dark:bg-leaf-900/40 flex items-center justify-center">
+                  <Inbox size={15} className="text-leaf-600" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white">받은 의견</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">사용자들이 보낸 의견 (관리자만 보여요)</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-gray-400" />
+            </button>
             <button
               onClick={() => setShowAdminStats(true)}
               className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -436,6 +491,9 @@ export default function SettingsPage() {
       {showInstallInstructions && <InstallInstructionsModal onClose={() => setShowInstallInstructions(false)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
       {showAdminStats && <AdminStatsModal onClose={() => setShowAdminStats(false)} />}
+      {showGuide && <OnboardingModal onClose={() => setShowGuide(false)} />}
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
+      {showFeedbackList && <FeedbackListModal onClose={() => setShowFeedbackList(false)} />}
     </div>
   );
 }
