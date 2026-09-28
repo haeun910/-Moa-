@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { deleteAllUserData } from '../lib/db';
+import { deleteMyAccount } from '../lib/db';
 
 const CONFIRM_TEXT = '삭제합니다';
 
@@ -17,8 +17,9 @@ export default function DeleteAccountModal({ onClose }: { onClose: () => void })
     setLoading(true);
     setError('');
     try {
-      await deleteAllUserData(user.id);
-      await signOut();
+      await deleteMyAccount(user.id);
+      // 계정이 이미 지워져서 로그아웃 요청이 실패해도 이 기기의 로그인 정보는 지워지므로 무시
+      await signOut().catch(() => {});
     } catch {
       setError('삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       setLoading(false);

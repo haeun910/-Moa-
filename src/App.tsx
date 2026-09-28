@@ -8,6 +8,7 @@ import InstallPrompt from './components/InstallPrompt';
 import UpdatePrompt from './components/UpdatePrompt';
 import Toaster from './components/Toaster';
 import OnboardingModal from './components/OnboardingModal';
+import ChangePasswordModal from './components/ChangePasswordModal';
 import TodayPage from './pages/TodayPage';
 import { useApp } from './context/AppContext';
 import { hasSeenOnboarding, markOnboardingSeen } from './lib/onboarding';
@@ -141,7 +142,7 @@ function AppContent() {
 }
 
 function Root() {
-  const { user, loading } = useAuth();
+  const { user, loading, passwordRecovery, endPasswordRecovery } = useAuth();
 
   if (loading) return <LoadingScreen />;
   if (!user) return <Suspense fallback={<LoadingScreen />}><AuthPage /></Suspense>;
@@ -149,6 +150,8 @@ function Root() {
   return (
     <AppProvider>
       <AppContent />
+      {/* 비밀번호 재설정 메일 링크로 들어온 경우: 새 비밀번호부터 정하게 함 */}
+      {passwordRecovery && <ChangePasswordModal recovery onClose={endPasswordRecovery} />}
     </AppProvider>
   );
 }

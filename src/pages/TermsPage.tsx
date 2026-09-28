@@ -49,7 +49,7 @@ export default function TermsPage() {
         </section>
 
         <p className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-100 dark:border-gray-800">
-          문의사항이 있으시면 설정 화면의 문의하기를 이용해 주세요.
+          문의사항이 있으시면 설정 &gt; 도움 · 의견 &gt; 의견 보내기를 이용해 주세요.
         </p>
       </div>
     </div>

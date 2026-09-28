@@ -43,13 +43,21 @@ export async function deleteNotice(id: string): Promise<void> {
 }
 
 // ────────────────────────────────────────────────
-// 계정 삭제 - 본인 데이터 전체 삭제
+// 회원 탈퇴 - 로그인 계정까지 완전히 삭제 (015 마이그레이션의 delete_my_account 함수)
+// 계정이 지워지면 모든 테이블의 본인 데이터도 DB에서 함께 삭제됨 (on delete cascade)
 // ────────────────────────────────────────────────
-export async function deleteAllUserData(userId: string): Promise<void> {
-  const tables = ['todos', 'subcategories', 'categories', 'notes', 'monthly_goals', 'ddays', 'schedules', 'user_settings'] as const;
+export async function deleteMyAccount(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (!error) return;
+  // 015를 아직 실행하지 않은 DB: 함수가 없으면 예전처럼 데이터라도 지움 (로그인 계정은 남음)
+  const missingFunction = error.code === 'PGRST202' || /delete_my_account/.test(error.message ?? '');
+  if (!missingFunction) throw error;
+  console.warn('delete_my_account 함수가 없어 데이터만 삭제합니다. 015 마이그레이션을 실행해주세요.');
+  const tables = ['todos', 'subcategories', 'categories', 'notes', 'note_folders', 'monthly_goals', 'ddays', 'schedules', 'feedback', 'user_settings'] as const;
   for (const table of tables) {
-    const { error } = await supabase.from(table).delete().eq('user_id', userId);
-    if (error) throw error;
+    const { error: e } = await supabase.from(table).delete().eq('user_id', userId);
+    // feedback은 본인도 삭제 권한이 없고, 아직 없는 테이블일 수도 있어서 해당 오류는 무시
+    if (e && table !== 'feedback' && table !== 'note_folders') throw e;
   }
 }
 
