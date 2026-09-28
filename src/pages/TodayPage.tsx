@@ -466,65 +466,82 @@ export default function TodayPage() {
           </div>
 
           {/* ── 뷰 탭 + 네비 ── */}
-          <div className="flex-shrink-0 flex items-center justify-between mb-2">
-            {/* 월/주 탭 + 네비 */}
-            <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 mb-2">
+            {/* 월/주 탭 + 네비 (모바일 폭에서도 한 줄에 들어가도록 간격을 줄이고 줄바꿈 금지) */}
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0 whitespace-nowrap">
               {/* 월/주 탭 */}
-              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-xs font-semibold">
+              <div className="flex-shrink-0 flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-xs font-semibold">
                 <button
                   onClick={() => setCalView('month')}
-                  className={`px-3 py-1.5 transition-colors ${calView === 'month' ? 'bg-leaf-300 text-leaf-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  className={`px-2.5 sm:px-3 py-1.5 transition-colors ${calView === 'month' ? 'bg-leaf-300 text-leaf-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                 >월</button>
                 <button
                   onClick={() => setCalView('week')}
-                  className={`px-3 py-1.5 transition-colors ${calView === 'week' ? 'bg-leaf-300 text-leaf-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  className={`px-2.5 sm:px-3 py-1.5 transition-colors ${calView === 'week' ? 'bg-leaf-300 text-leaf-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                 >주</button>
               </div>
               {calView === 'month' ? (
                 <>
                   <button onClick={() => setViewMonth(m => subMonths(m, 1))} aria-label="이전 달"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    className="flex-shrink-0 w-6 h-7 sm:w-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronLeft size={15} />
                   </button>
-                  <h1 className="text-base font-bold text-gray-900 dark:text-white">
-                    {format(viewMonth, 'yyyy년 M월', { locale: ko })}
+                  {/* 좁은 화면에서는 한 줄에 들어가도록 올해면 "9월", 다른 해면 "'27.1"처럼 짧게 표시 */}
+                  <h1 className="min-w-0 truncate text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                    {viewMonth.getFullYear() === new Date().getFullYear() ? (
+                      <>
+                        <span className="hidden sm:inline">{format(viewMonth, 'yyyy년 ')}</span>
+                        {format(viewMonth, 'M월')}
+                      </>
+                    ) : (
+                      <>
+                        <span className="sm:hidden">{format(viewMonth, "''yy.M")}</span>
+                        <span className="hidden sm:inline">{format(viewMonth, 'yyyy년 M월', { locale: ko })}</span>
+                      </>
+                    )}
                   </h1>
                   <button onClick={() => setViewMonth(m => addMonths(m, 1))} aria-label="다음 달"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    className="flex-shrink-0 w-6 h-7 sm:w-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronRight size={15} />
                   </button>
                 </>
               ) : (
                 <>
                   <button onClick={() => setWeekRef(w => subWeeks(w, 1))} aria-label="이전 주"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    className="flex-shrink-0 w-6 h-7 sm:w-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronLeft size={15} />
                   </button>
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  <span className="min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white">
                     {format(startOfWeek(weekRef, { weekStartsOn: 0 }), 'M.d')} - {format(endOfWeek(weekRef, { weekStartsOn: 0 }), 'M.d')}
                   </span>
                   <button onClick={() => setWeekRef(w => addWeeks(w, 1))} aria-label="다음 주"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    className="flex-shrink-0 w-6 h-7 sm:w-7 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <ChevronRight size={15} />
                   </button>
                 </>
               )}
               <button onClick={() => { setViewMonth(new Date()); setWeekRef(new Date()); setSelectedDate(todayStr); setPanelOpen(true); }}
-                className="px-2 h-7 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                className="flex-shrink-0 px-1.5 sm:px-2 h-7 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                 오늘
               </button>
             </div>
-            {/* 공지사항 / 성취리포트 */}
-            <div className="flex items-center gap-1">
+            {/* 미완료 / 공지사항 / 성취리포트 (아이콘만 표시해 공간 절약) */}
+            <div className="flex-shrink-0 flex items-center gap-1">
               <button onClick={() => setShowOverdue(true)} aria-label="미완료 할 일" title="지난 날짜의 미완료 할 일 모아보기"
-                className={`flex items-center gap-1 px-2 h-7 rounded-lg text-xs font-semibold border transition-colors ${
+                className={`relative flex items-center justify-center gap-1 w-7 sm:w-auto sm:px-2 h-7 rounded-lg text-xs font-semibold border transition-colors ${
                   overdueTodos.length > 0
                     ? 'text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20'
                     : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}>
                 <AlertCircle size={13} />
                 <span className="hidden sm:inline">미완료</span>
-                {overdueTodos.length > 0 && <span>{overdueTodos.length}</span>}
+                {overdueTodos.length > 0 && <span className="hidden sm:inline">{overdueTodos.length}</span>}
+                {/* 모바일은 아이콘만: 개수는 공지 알림 점처럼 모서리 배지로 */}
+                {overdueTodos.length > 0 && (
+                  <span className="sm:hidden absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] leading-4 font-bold text-center border border-white dark:border-gray-950">
+                    {overdueTodos.length > 99 ? '99+' : overdueTodos.length}
+                  </span>
+                )}
               </button>
               <button onClick={openNotice} aria-label="공지사항" title="공지사항"
                 className="relative flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
@@ -533,10 +550,9 @@ export default function TodayPage() {
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white dark:border-gray-950" />
                 )}
               </button>
-              <button onClick={() => setShowAchievement(true)}
-                className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs font-semibold text-leaf-600 dark:text-leaf-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 border border-leaf-200 dark:border-leaf-800 transition-colors">
+              <button onClick={() => setShowAchievement(true)} aria-label="성취 리포트" title="성취 리포트"
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-leaf-600 dark:text-leaf-400 hover:bg-leaf-50 dark:hover:bg-leaf-900/20 border border-leaf-200 dark:border-leaf-800 transition-colors">
                 <BarChart3 size={13} />
-                성취 리포트
               </button>
             </div>
           </div>
