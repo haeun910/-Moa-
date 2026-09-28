@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { X, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-export default function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+// recovery: 비밀번호 재설정 메일 링크로 들어온 경우 (새 비밀번호를 정해야 함)
+export default function ChangePasswordModal({ onClose, recovery = false }: { onClose: () => void; recovery?: boolean }) {
   const { updatePassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -37,7 +38,7 @@ export default function ChangePasswordModal({ onClose }: { onClose: () => void }
     >
       <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up motion-reduce:animate-none">
         <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">비밀번호 변경</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{recovery ? '새 비밀번호 설정' : '비밀번호 변경'}</h2>
           <button onClick={onClose} aria-label="닫기"
             className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
             <X size={16} />
@@ -56,6 +57,11 @@ export default function ChangePasswordModal({ onClose }: { onClose: () => void }
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
+              {recovery && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  비밀번호 재설정 링크로 들어오셨어요. 앞으로 로그인할 때 쓸 새 비밀번호를 정해주세요.
+                </p>
+              )}
               <div>
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">새 비밀번호</label>
                 <div className="relative">
