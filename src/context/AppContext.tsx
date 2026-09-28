@@ -5,6 +5,7 @@ import type { DbTodo, DbCategory, DbSubcategory, DbNote, DbSettings, DbMonthlyGo
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import { format } from 'date-fns';
+import { newSeriesId } from '../lib/recurrence';
 import type { Todo, Category, Subcategory, Note, Settings, Screen, MonthlyGoal, DDay, ScheduleItem, Notice } from '../types';
 
 // ── DB 행 → 앱 타입 변환 ──────────────────────────────────
@@ -21,6 +22,7 @@ function toTodo(t: DbTodo): Todo {
     startTime: t.start_time,
     notes: t.notes ?? '',
     createdAt: t.created_at,
+    seriesId: t.series_id ?? null,
   };
 }
 
@@ -45,7 +47,7 @@ function toDDay(d: DbDDay): DDay {
 }
 
 function toSchedule(s: DbSchedule): ScheduleItem {
-  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, notes: s.notes, createdAt: s.created_at };
+  return { id: s.id, title: s.title, date: s.date, startTime: s.start_time, notes: s.notes, createdAt: s.created_at, seriesId: s.series_id ?? null };
 }
 
 function toNotice(n: DbNotice): Notice {
@@ -80,6 +82,9 @@ interface AppContextType {
   selectedDate: string;
   dataLoading: boolean;
   addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<void>;
+  addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[]) => Promise<void>;
+  updateTodoSeries: (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => Promise<void>;
+  deleteTodoSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
   toggleTodo: (id: string) => Promise<void>;
@@ -106,11 +111,23 @@ interface AppContextType {
   addSchedule: (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   updateSchedule: (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  addScheduleSeries: (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[]) => Promise<void>;
+  updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: { title?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
+  deleteScheduleSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
   updateNotice: (id: string, updates: { title?: string; content?: string }) => Promise<void>;
   deleteNotice: (id: string) => Promise<void>;
   setCurrentScreen: (screen: Screen) => void;
   setSelectedDate: (date: string) => void;
+}
+
+// 반복 할 일 묶음 수정 시 함께 바꿀 수 있는 항목 (날짜/완료/마감일은 회차마다 다르므로 제외)
+export type TodoSeriesUpdates = Partial<Pick<Todo, 'title' | 'categoryId' | 'subcategoryId' | 'startTime' | 'notes'>>;
+
+// fromDate가 있으면 그 날짜(포함) 이후 회차만, 없으면 반복 전체 (DB 쿼리와 같은 기준)
+function inSeries(item: { seriesId?: string | null; date: string | null }, seriesId: string, fromDate: string | null): boolean {
+  if (item.seriesId !== seriesId) return false;
+  return fromDate ? !!item.date && item.date >= fromDate : true;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -263,6 +280,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     setTodos(prev => [...prev, toTodo(row)]);
   }, [user, todos.length]);
+
+  // 반복 할 일: 각 날짜마다 독립된 할 일을 한 번에 만들고 같은 seriesId로 묶음
+  const addTodoSeries = useCallback(async (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[]) => {
+    if (!user || dates.length === 0) return;
+    const rows = await db.createTodos(user.id, dates.map((date, i) => ({
+      title: fields.title,
+      completed: fields.completed,
+      category_id: fields.categoryId,
+      subcategory_id: fields.subcategoryId ?? null,
+      date,
+      due_date: fields.dueDate ?? null,
+      is_dday: fields.isDday ?? false,
+      start_time: fields.startTime ?? null,
+      notes: fields.notes,
+      sort_order: todos.length + i,
+    })), newSeriesId());
+    setTodos(prev => [...prev, ...rows.map(toTodo)]);
+  }, [user, todos.length]);
+
+  const updateTodoSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => {
+    const dbUpdates: Parameters<typeof db.updateTodoSeries>[2] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if ('categoryId' in updates) dbUpdates.category_id = updates.categoryId ?? null;
+    if ('subcategoryId' in updates) dbUpdates.subcategory_id = updates.subcategoryId ?? null;
+    if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    setTodos(prev => prev.map(t => inSeries(t, seriesId, fromDate) ? { ...t, ...updates } : t));
+    await db.updateTodoSeries(seriesId, fromDate, dbUpdates);
+  }, []);
+
+  const deleteTodoSeries = useCallback(async (seriesId: string, fromDate: string | null) => {
+    setTodos(prev => prev.filter(t => !inSeries(t, seriesId, fromDate)));
+    await db.deleteTodoSeries(seriesId, fromDate);
+  }, []);
 
   const updateTodo = useCallback(async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => {
     if (!user) return;
@@ -449,6 +500,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await db.deleteSchedule(id);
   }, []);
 
+  // 반복 일정: 각 날짜마다 독립된 일정을 한 번에 만들고 같은 seriesId로 묶음
+  const addScheduleSeries = useCallback(async (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[]) => {
+    if (!user || dates.length === 0) return;
+    const rows = await db.createSchedules(user.id, dates.map(date => ({
+      title: fields.title, date, start_time: fields.startTime ?? null, notes: fields.notes ?? null,
+    })), newSeriesId());
+    setSchedules(prev => sortSchedules([...prev, ...rows.map(toSchedule)]));
+  }, [user]);
+
+  const updateScheduleSeries = useCallback(async (seriesId: string, fromDate: string | null, updates: { title?: string; startTime?: string | null; notes?: string | null }) => {
+    const dbUpdates: Parameters<typeof db.updateScheduleSeries>[2] = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if ('startTime' in updates) dbUpdates.start_time = updates.startTime ?? null;
+    if ('notes' in updates) dbUpdates.notes = updates.notes ?? null;
+    setSchedules(prev => sortSchedules(prev.map(s => inSeries(s, seriesId, fromDate) ? { ...s, ...updates } : s)));
+    await db.updateScheduleSeries(seriesId, fromDate, dbUpdates);
+  }, []);
+
+  const deleteScheduleSeries = useCallback(async (seriesId: string, fromDate: string | null) => {
+    setSchedules(prev => prev.filter(s => !inSeries(s, seriesId, fromDate)));
+    await db.deleteScheduleSeries(seriesId, fromDate);
+  }, []);
+
   // ── 공지사항 ───────────────────────────────────────
   const addNotice = useCallback(async (title: string, content: string) => {
     const row = await db.createNotice(title, content);
@@ -483,14 +557,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       todos, categories, subcategories, notes, settings, monthlyGoals, ddays, schedules, notices, isAdmin, currentScreen, selectedDate, dataLoading,
-      addTodo, updateTodo, deleteTodo, toggleTodo, reorderTodos,
+      addTodo, addTodoSeries, updateTodoSeries, deleteTodoSeries, updateTodo, deleteTodo, toggleTodo, reorderTodos,
       addCategory, updateCategory, deleteCategory, reorderCategories,
       addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories,
       addNote, updateNote, deleteNote,
       updateSettings,
       addMonthlyGoal, updateMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
       addDDay, updateDDay, deleteDDay,
-      addSchedule, updateSchedule, deleteSchedule,
+      addSchedule, updateSchedule, deleteSchedule, addScheduleSeries, updateScheduleSeries, deleteScheduleSeries,
       addNotice, updateNotice, deleteNotice,
       setCurrentScreen, setSelectedDate,
     }}>

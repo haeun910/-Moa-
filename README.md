@@ -55,6 +55,7 @@ Supabase 대시보드 → **SQL Editor**에서 아래 순서대로 실행합니�
 2. [`supabase/migrations/001_add_start_time.sql`](supabase/migrations/001_add_start_time.sql)
 3. [`supabase/migrations/002_monthly_goals_ddays.sql`](supabase/migrations/002_monthly_goals_ddays.sql)
 4. [`supabase/migrations/003_notices.sql`](supabase/migrations/003_notices.sql) — 공지사항 기능 (관리자 계정 UUID를 본인 것으로 바꿔서 실행)
+5. 나머지 [`supabase/migrations/`](supabase/migrations/) 파일도 번호 순서대로 실행 (예: `012_recurrence_series.sql` — 반복 일정/할 일 묶음 수정·삭제)
 
 Google 로그인을 쓰려면 Supabase 대시보드 → **Authentication → Providers**에서 Google을 활성화하고 OAuth 클라이언트를 등록해야 합니다.
 

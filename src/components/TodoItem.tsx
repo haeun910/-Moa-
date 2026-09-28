@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Clock, Flag, StickyNote } from 'lucide-react';
+import { Check, Trash2, Clock, Flag, StickyNote, Repeat } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { Todo } from '../types';
 import { useApp } from '../context/AppContext';
@@ -117,8 +117,14 @@ export default function TodoItem({ todo, onEdit, actions, completeMovesToToday }
               {todo.title}
             </span>
           )}
-          {(todo.startTime || todo.dueDate || todo.notes) && (
+          {(todo.startTime || todo.dueDate || todo.notes || todo.seriesId) && (
             <div className="flex items-center gap-2 mt-0.5 cursor-pointer" onClick={handleTitleClick}>
+              {todo.seriesId && (
+                <span className="flex items-center gap-0.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium" title="반복 할 일">
+                  <Repeat size={10} />
+                  반복
+                </span>
+              )}
               {todo.startTime && (
                 <span className="flex items-center gap-0.5 text-[11px] text-leaf-500 dark:text-leaf-400 font-medium">
                   <Clock size={10} />

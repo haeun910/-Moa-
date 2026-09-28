@@ -10,6 +10,7 @@ export interface Todo {
   startTime?: string | null; // HH:MM
   createdAt: string;
   notes?: string;
+  seriesId?: string | null; // 반복으로 만든 할 일이면 같은 반복끼리 공유하는 id
 }
 
 export interface Category {
@@ -70,6 +71,7 @@ export interface ScheduleItem {
   startTime?: string | null; // HH:MM
   notes?: string | null;
   createdAt: string;
+  seriesId?: string | null; // 반복으로 만든 일정이면 같은 반복끼리 공유하는 id
 }
 
 export interface Notice {
