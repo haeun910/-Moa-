@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
-import { Plus, Send, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2 } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, AlertCircle, CalendarCheck } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
 import DDayModal from '../components/DDayModal';
 import DDayListModal from '../components/DDayListModal';
 import ScheduleModal from '../components/ScheduleModal';
+import OverdueModal from '../components/OverdueModal';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, addMonths, subMonths, parseISO,
@@ -16,7 +17,8 @@ import { useApp } from '../context/AppContext';
 import { applyListDisplaySettings } from '../lib/listDisplay';
 import TodoList from '../components/TodoList';
 import TodoModal from '../components/TodoModal';
-import type { Todo, DDay, ScheduleItem, Settings } from '../types';
+import DayTodoComposer from '../components/DayTodoComposer';
+import type { Todo, DDay, ScheduleItem, Settings, MonthlyGoal } from '../types';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -74,11 +76,10 @@ export default function TodayPage() {
   const [showModal, setShowModal] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
   const [panelOpen, setPanelOpen] = useState(false);
-  const [quickTitle, setQuickTitle] = useState('');
-  const [quickLoading, setQuickLoading] = useState(false);
-  const quickInputRef = useRef<HTMLInputElement>(null);
+  // 날짜 패널 입력창에서 상세 옵션으로 넘어갈 때 고른 카테고리/하위카테고리를 모달 기본값으로 전달
+  const [newTodoDefaults, setNewTodoDefaults] = useState<{ categoryId: string | null; subcategoryId: string | null }>({ categoryId: null, subcategoryId: null });
 
-  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalModalState, setGoalModalState] = useState<{ goal?: MonthlyGoal } | null>(null);
   const [showDdayModal, setShowDdayModal] = useState(false);
   const [showDdayListModal, setShowDdayListModal] = useState(false);
   const [scheduleModalState, setScheduleModalState] = useState<{ schedule?: ScheduleItem; defaultDate?: string } | null>(null);
@@ -88,6 +89,7 @@ export default function TodayPage() {
   const [weekAddTitle, setWeekAddTitle] = useState('');
   const [showAchievement, setShowAchievement] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
+  const [showOverdue, setShowOverdue] = useState(false);
   const [lastSeenNotice, setLastSeenNotice] = useState(() => localStorage.getItem('notice-last-seen') ?? '');
   const hasUnreadNotice = notices.length > 0 && notices[0].createdAt !== lastSeenNotice;
 
@@ -116,6 +118,8 @@ export default function TodayPage() {
     { cat: null, groupTodos: selectedTodos.filter(t => !t.categoryId) },
   ].filter(g => g.groupTodos.length > 0);
   const selectedSchedules = schedules.filter(s => s.date === selectedDate);
+  // 지난 날짜에 잡혀 있는데 아직 완료하지 못한 할 일 (미완료 모아보기)
+  const overdueTodos = todos.filter(t => t.date && t.date < todayStr && !t.completed);
 
   function handleDayClick(dateStr: string) {
     if (selectedDate === dateStr && panelOpen) setPanelOpen(false);
@@ -124,16 +128,10 @@ export default function TodayPage() {
 
   function openEdit(todo: Todo) { setEditTodo(todo); setShowModal(true); }
   function closeModal() { setShowModal(false); setEditTodo(undefined); }
-
-  async function handleQuickAdd() {
-    const title = quickTitle.trim();
-    if (!title || quickLoading) return;
-    setQuickLoading(true);
-    try {
-      await addTodo({ title, completed: false, categoryId: null, subcategoryId: null, date: selectedDate, startTime: null, notes: '' });
-      setQuickTitle('');
-      quickInputRef.current?.focus();
-    } finally { setQuickLoading(false); }
+  function openNewTodoDetail(categoryId: string | null, subcategoryId: string | null) {
+    setNewTodoDefaults({ categoryId, subcategoryId });
+    setEditTodo(undefined);
+    setShowModal(true);
   }
 
   function ddayLabel(targetDate: string): string {
@@ -170,6 +168,23 @@ export default function TodayPage() {
           저장소로
         </button>
         <MoveToDateButton todo={todo} onMove={date => updateTodo(todo.id, { date })} />
+      </>
+    );
+  }
+
+  // 미완료 모아보기에서는 "오늘로" 버튼을 맨 앞에 추가
+  function getOverdueActions(todo: Todo) {
+    return (
+      <>
+        <button
+          onClick={e => { e.stopPropagation(); updateTodo(todo.id, { date: todayStr }); }}
+          className="flex items-center gap-1 text-[10px] font-semibold text-leaf-700 dark:text-leaf-300 bg-leaf-100 hover:bg-leaf-200 dark:bg-leaf-900/40 dark:hover:bg-leaf-900/60 px-2 py-1 rounded-lg transition-all whitespace-nowrap"
+          title="오늘 할 일로 옮기기"
+        >
+          <CalendarCheck size={11} />
+          오늘로
+        </button>
+        {getTodoActions(todo)}
       </>
     );
   }
@@ -283,7 +298,7 @@ export default function TodayPage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs md:text-[10px] text-gray-400">{completedGoals}/{monthGoals.length}</span>
-                  <button onClick={() => setShowGoalModal(true)} aria-label="목표 추가"
+                  <button onClick={() => setGoalModalState({})} aria-label="목표 추가"
                     className="w-7 h-7 md:w-5 md:h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
                     <Plus size={14} className="md:hidden" />
                     <Plus size={11} className="hidden md:block" />
@@ -305,9 +320,13 @@ export default function TodayPage() {
                       {g.completed && <Check size={11} className="text-leaf-800 md:hidden" strokeWidth={3} />}
                       {g.completed && <Check size={10} className="text-leaf-800 hidden md:block" strokeWidth={3} />}
                     </button>
-                    <span className={`flex-1 text-sm md:text-xs leading-tight ${g.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <button
+                      onClick={() => setGoalModalState({ goal: g })}
+                      title="눌러서 수정"
+                      className={`flex-1 min-w-0 text-left text-sm md:text-xs leading-tight hover:text-leaf-600 dark:hover:text-leaf-400 transition-colors ${g.completed ? 'line-through text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}
+                    >
                       {g.title}
-                    </span>
+                    </button>
                     <button onClick={() => deleteMonthlyGoal(g.id)} aria-label="목표 삭제"
                       className="opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all">
                       <X size={14} className="md:hidden" />
@@ -452,6 +471,16 @@ export default function TodayPage() {
             </div>
             {/* 공지사항 / 성취리포트 */}
             <div className="flex items-center gap-1">
+              <button onClick={() => setShowOverdue(true)} aria-label="미완료 할 일" title="지난 날짜의 미완료 할 일 모아보기"
+                className={`flex items-center gap-1 px-2 h-7 rounded-lg text-xs font-semibold border transition-colors ${
+                  overdueTodos.length > 0
+                    ? 'text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                    : 'text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}>
+                <AlertCircle size={13} />
+                <span className="hidden sm:inline">미완료</span>
+                {overdueTodos.length > 0 && <span>{overdueTodos.length}</span>}
+              </button>
               <button onClick={openNotice} aria-label="공지사항" title="공지사항"
                 className="relative flex items-center justify-center w-7 h-7 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors">
                 <Megaphone size={13} />
@@ -676,24 +705,11 @@ export default function TodayPage() {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 pt-3 pb-28">
+            <div className="flex-1 overflow-y-auto px-5 pt-3 pb-48">
               {renderDayGroups()}
             </div>
             <div className="absolute bottom-16 left-0 right-0 px-5 pb-2">
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
-                <input ref={quickInputRef} type="text" value={quickTitle}
-                  onChange={e => setQuickTitle(e.target.value)} placeholder="할 일 빠르게 추가..."
-                  className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
-                  onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
-                <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading} aria-label="추가"
-                  className="w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center">
-                  <Send size={14} />
-                </button>
-                <button onClick={() => { setEditTodo(undefined); setShowModal(true); }} aria-label="상세 옵션으로 추가"
-                  className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 flex items-center justify-center">
-                  <Plus size={16} />
-                </button>
-              </div>
+              <DayTodoComposer date={selectedDate} onOpenDetail={openNewTodoDetail} />
             </div>
           </>
         )}
@@ -725,31 +741,31 @@ export default function TodayPage() {
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 pt-2 pb-20">
+        <div className="flex-1 overflow-y-auto px-4 pt-2 pb-44">
           {renderDayGroups()}
         </div>
         <div className="absolute bottom-16 left-0 right-0 px-4 pb-2">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-black/30 flex items-center gap-2 px-4 py-3">
-            <input ref={quickInputRef} type="text" value={quickTitle}
-              onChange={e => setQuickTitle(e.target.value)} placeholder="할 일 빠르게 추가..."
-              className="flex-1 text-sm bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none"
-              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); }} />
-            <button onClick={handleQuickAdd} disabled={!quickTitle.trim() || quickLoading}
-              className="w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center">
-              <Send size={14} />
-            </button>
-            <button onClick={() => { setEditTodo(undefined); setShowModal(true); }}
-              className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 flex items-center justify-center">
-              <Plus size={16} />
-            </button>
-          </div>
+          <DayTodoComposer date={selectedDate} onOpenDetail={openNewTodoDetail} />
         </div>
       </div>
 
-      {showModal && <TodoModal todo={editTodo} defaultDate={selectedDate} onClose={closeModal} />}
+      {showOverdue && (
+        <OverdueModal todos={overdueTodos} onEdit={openEdit} getActions={getOverdueActions} onClose={() => setShowOverdue(false)} />
+      )}
+      {showModal && (
+        <TodoModal
+          todo={editTodo}
+          defaultDate={selectedDate}
+          defaultCategoryId={newTodoDefaults.categoryId}
+          defaultSubcategoryId={newTodoDefaults.subcategoryId}
+          onClose={closeModal}
+        />
+      )}
       {showAchievement && <AchievementModal onClose={() => setShowAchievement(false)} />}
       {showNotice && <NoticeModal onClose={() => setShowNotice(false)} />}
-      {showGoalModal && <GoalModal month={currentMonth} onClose={() => setShowGoalModal(false)} />}
+      {goalModalState && (
+        <GoalModal month={currentMonth} goal={goalModalState.goal} onClose={() => setGoalModalState(null)} />
+      )}
       {showDdayModal && <DDayModal onClose={() => setShowDdayModal(false)} />}
       {showDdayListModal && (
         <DDayListModal ddays={allDdays} onDelete={removeDday} onClose={() => setShowDdayListModal(false)} />

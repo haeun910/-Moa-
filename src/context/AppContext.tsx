@@ -97,6 +97,7 @@ interface AppContextType {
   deleteNote: (id: string) => Promise<void>;
   updateSettings: (updates: Partial<Settings>) => Promise<void>;
   addMonthlyGoal: (month: string, title: string) => Promise<void>;
+  updateMonthlyGoal: (id: string, updates: { title?: string }) => Promise<void>;
   toggleMonthlyGoal: (id: string) => Promise<void>;
   deleteMonthlyGoal: (id: string) => Promise<void>;
   addDDay: (title: string, targetDate: string) => Promise<void>;
@@ -386,6 +387,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMonthlyGoals(prev => [...prev, toMonthlyGoal(row)]);
   }, [user]);
 
+  const updateMonthlyGoal = useCallback(async (id: string, updates: { title?: string }) => {
+    setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+    await db.updateMonthlyGoal(id, updates);
+  }, []);
+
   const toggleMonthlyGoal = useCallback(async (id: string) => {
     setMonthlyGoals(prev => prev.map(g => g.id === id ? { ...g, completed: !g.completed } : g));
     const goal = monthlyGoals.find(g => g.id === id);
@@ -482,7 +488,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addSubcategory, updateSubcategory, deleteSubcategory, reorderSubcategories,
       addNote, updateNote, deleteNote,
       updateSettings,
-      addMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
+      addMonthlyGoal, updateMonthlyGoal, toggleMonthlyGoal, deleteMonthlyGoal,
       addDDay, updateDDay, deleteDDay,
       addSchedule, updateSchedule, deleteSchedule,
       addNotice, updateNotice, deleteNotice,
