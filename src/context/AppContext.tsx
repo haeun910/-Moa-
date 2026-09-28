@@ -82,7 +82,8 @@ interface AppContextType {
   selectedDate: string;
   dataLoading: boolean;
   addTodo: (fields: Omit<Todo, 'id' | 'createdAt'>) => Promise<void>;
-  addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[]) => Promise<void>;
+  // existingId가 있으면 그 할 일(이미 있는 항목)도 같은 반복으로 묶음. dates는 새로 만들 날짜만 (기존 항목 날짜 제외)
+  addTodoSeries: (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => Promise<void>;
   updateTodoSeries: (seriesId: string, fromDate: string | null, updates: TodoSeriesUpdates) => Promise<void>;
   deleteTodoSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   updateTodo: (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt'>>) => Promise<void>;
@@ -111,7 +112,7 @@ interface AppContextType {
   addSchedule: (fields: { title: string; date: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   updateSchedule: (id: string, updates: { title?: string; date?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
-  addScheduleSeries: (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[]) => Promise<void>;
+  addScheduleSeries: (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[], existingId?: string) => Promise<void>;
   updateScheduleSeries: (seriesId: string, fromDate: string | null, updates: { title?: string; startTime?: string | null; notes?: string | null }) => Promise<void>;
   deleteScheduleSeries: (seriesId: string, fromDate: string | null) => Promise<void>;
   addNotice: (title: string, content: string) => Promise<void>;
@@ -282,8 +283,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [user, todos.length]);
 
   // 반복 할 일: 각 날짜마다 독립된 할 일을 한 번에 만들고 같은 seriesId로 묶음
-  const addTodoSeries = useCallback(async (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[]) => {
-    if (!user || dates.length === 0) return;
+  const addTodoSeries = useCallback(async (fields: Omit<Todo, 'id' | 'createdAt' | 'date' | 'seriesId'>, dates: string[], existingId?: string) => {
+    if (!user) return;
+    const seriesId = newSeriesId();
+    if (existingId) {
+      // dates에는 기존 항목 날짜를 빼고 넘겨야 함 (호출하는 쪽에서 방금 바꾼 날짜를 알고 있으므로)
+      await db.setSeriesId('todos', existingId, seriesId);
+      setTodos(prev => prev.map(t => t.id === existingId ? { ...t, seriesId } : t));
+    }
+    if (dates.length === 0) return;
     const rows = await db.createTodos(user.id, dates.map((date, i) => ({
       title: fields.title,
       completed: fields.completed,
@@ -295,7 +303,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       start_time: fields.startTime ?? null,
       notes: fields.notes,
       sort_order: todos.length + i,
-    })), newSeriesId());
+    })), seriesId);
     setTodos(prev => [...prev, ...rows.map(toTodo)]);
   }, [user, todos.length]);
 
@@ -501,11 +509,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // 반복 일정: 각 날짜마다 독립된 일정을 한 번에 만들고 같은 seriesId로 묶음
-  const addScheduleSeries = useCallback(async (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[]) => {
-    if (!user || dates.length === 0) return;
+  const addScheduleSeries = useCallback(async (fields: { title: string; startTime?: string | null; notes?: string | null }, dates: string[], existingId?: string) => {
+    if (!user) return;
+    const seriesId = newSeriesId();
+    if (existingId) {
+      // dates에는 기존 일정 날짜를 빼고 넘겨야 함 (호출하는 쪽에서 방금 바꾼 날짜를 알고 있으므로)
+      await db.setSeriesId('schedules', existingId, seriesId);
+      setSchedules(prev => prev.map(s => s.id === existingId ? { ...s, seriesId } : s));
+    }
+    if (dates.length === 0) return;
     const rows = await db.createSchedules(user.id, dates.map(date => ({
       title: fields.title, date, start_time: fields.startTime ?? null, notes: fields.notes ?? null,
-    })), newSeriesId());
+    })), seriesId);
     setSchedules(prev => sortSchedules([...prev, ...rows.map(toSchedule)]));
   }, [user]);
 

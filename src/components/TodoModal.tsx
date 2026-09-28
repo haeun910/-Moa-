@@ -14,16 +14,17 @@ interface Props {
   defaultTime?: string;
   defaultCategoryId?: string | null;
   defaultSubcategoryId?: string | null;
+  defaultTitle?: string; // 빠른 입력창에 쓰던 제목을 상세 추가로 이어서 쓸 때
   onClose: () => void;
 }
 
-export default function TodoModal({ todo, defaultDate, defaultTime, defaultCategoryId, defaultSubcategoryId, onClose }: Props) {
+export default function TodoModal({ todo, defaultDate, defaultTime, defaultCategoryId, defaultSubcategoryId, defaultTitle, onClose }: Props) {
   const {
     todos, addTodo, updateTodo, deleteTodo, categories, subcategories, addSubcategory,
     addTodoSeries, updateTodoSeries, deleteTodoSeries,
   } = useApp();
 
-  const [title, setTitle] = useState(todo?.title ?? '');
+  const [title, setTitle] = useState(todo?.title ?? defaultTitle ?? '');
   const [date, setDate] = useState(todo?.date ?? defaultDate ?? '');
   const [dueDate, setDueDate] = useState(todo?.dueDate ?? '');
   const [isDday, setIsDday] = useState(todo?.isDday ?? false);
@@ -34,19 +35,21 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
   const [newSubcatName, setNewSubcatName] = useState('');
   const [notes, setNotes] = useState(todo?.notes ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // 반복은 새로 만드는 할 일에만 적용(이미 만든 할 일을 나중에 "반복"으로 바꾸는 건 지원 안 함).
-  // 각 회차는 독립된 할 일로 만들어지고 seriesId로 묶여서, 나중에 이 회차만/이후 모두/전체를 골라 수정·삭제할 수 있음.
-  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
   const [saving, setSaving] = useState(false);
-
   const isEdit = !!todo;
-  const repeating = !isEdit && repeat.freq !== 'none';
-  const repeatDates = repeating ? buildRecurringDates(date, repeat) : [];
 
   // 반복으로 만든 할 일을 수정/삭제할 때 적용 범위
   const seriesId = todo?.seriesId ?? null;
   const seriesItems = seriesId ? todos.filter(t => t.seriesId === seriesId) : [];
   const inSeriesMode = seriesItems.length > 1;
+
+  // 반복: 각 회차는 독립된 할 일로 만들어지고 seriesId로 묶여서, 나중에 이 회차만/이후 모두/전체를 골라 수정·삭제할 수 있음.
+  // 새 할 일뿐 아니라 아직 반복이 아닌 기존 할 일도 반복으로 바꿀 수 있음 (이 할 일이 첫 회차가 되고 이후 날짜가 추가됨)
+  const canRepeat = !inSeriesMode;
+  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
+  const repeating = canRepeat && repeat.freq !== 'none';
+  const repeatDates = repeating ? buildRecurringDates(date, repeat) : [];
+  const newRepeatCount = isEdit ? repeatDates.filter(d => d !== date).length : repeatDates.length;
   const [scope, setScope] = useState<SeriesScope>('one');
   // "이후 모두"의 기준 날짜: 이 할 일의 원래 날짜 (저장소로 옮겨 날짜가 없으면 전체와 같게 취급)
   const scopeFromDate = scope === 'following' ? (todo?.date ?? null) : null;
@@ -84,7 +87,11 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
     };
     setSaving(true);
     try {
-      if (isEdit) {
+      if (isEdit && repeating && newRepeatCount > 0) {
+        // 기존 할 일을 반복으로 바꾸기: 이 할 일은 그대로 저장하고, 나머지 날짜에 새로(미완료로) 만들어 같은 반복으로 묶음
+        await updateTodo(todo.id, payload);
+        await addTodoSeries({ ...payload, completed: false }, repeatDates.filter(d => d !== date), todo.id);
+      } else if (isEdit) {
         if (inSeriesMode && scope !== 'one' && seriesId) {
           // 제목/카테고리/시간/메모는 선택한 범위 전체에, 날짜·마감일·D-Day는 이 할 일에만 적용
           await updateTodoSeries(seriesId, scopeFromDate, {
@@ -202,9 +209,9 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
             </label>
           </div>
 
-          {/* Repeat (새 할 일에만 적용) */}
-          {!isEdit && (
-            <RepeatPicker startDate={date} rule={repeat} onChange={setRepeat} occurrenceCount={repeatDates.length} itemLabel="할 일" />
+          {/* Repeat (새 할 일, 또는 아직 반복이 아닌 기존 할 일) */}
+          {canRepeat && (
+            <RepeatPicker startDate={date} rule={repeat} onChange={setRepeat} occurrenceCount={repeatDates.length} itemLabel="할 일" convertingExisting={isEdit} />
           )}
 
           {/* 반복 할 일 수정 시 적용 범위 */}
@@ -351,7 +358,9 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
             disabled={!canSave}
             className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 transition-colors text-sm font-semibold"
           >
-            {saving ? '저장 중...' : repeating && repeatDates.length > 0 ? `${repeatDates.length}개 추가` : '저장'}
+            {saving ? '저장 중...'
+              : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)
+              : '저장'}
           </button>
         </div>
       </div>
