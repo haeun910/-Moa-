@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Send, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight } from 'lucide-react';
+import { SlidersHorizontal, Send, CalendarCheck, CalendarDays, Package, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, useDroppable,
@@ -246,8 +246,17 @@ export default function AllTodosPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
+  // 상세 추가 창을 열 때 빠른 입력창에 쓰던 제목을 이어서 씀
+  const [detailTitle, setDetailTitle] = useState('');
+
   function openEdit(todo: Todo) { setEditTodo(todo); setShowModal(true); }
   function closeModal() { setShowModal(false); setEditTodo(undefined); }
+  function openNewDetail() {
+    setDetailTitle(quickTitle.trim());
+    setQuickTitle('');
+    setEditTodo(undefined);
+    setShowModal(true);
+  }
 
   async function handleQuickAdd() {
     const title = quickTitle.trim();
@@ -421,13 +430,14 @@ export default function AllTodosPage() {
               className="flex-shrink-0 w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center shadow-sm">
               <Send size={14} />
             </button>
-            <button onClick={() => { setEditTodo(undefined); setShowModal(true); }} aria-label="상세 옵션으로 추가"
-              className="flex-shrink-0 w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center">
-              <Plus size={16} />
+            <button onClick={openNewDetail} aria-label="상세 옵션으로 추가" title="날짜·시간·마감일·반복 등 상세 옵션으로 추가"
+              className="flex-shrink-0 flex items-center gap-1 h-8 px-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold whitespace-nowrap">
+              <SlidersHorizontal size={13} />
+              상세
             </button>
           </div>
         </div>
-        {showModal && <TodoModal todo={editTodo} defaultCategoryId={activeCatId} onClose={closeModal} />}
+        {showModal && <TodoModal todo={editTodo} defaultCategoryId={activeCatId} defaultTitle={detailTitle} onClose={closeModal} />}
       </div>
     );
   }
@@ -518,14 +528,15 @@ export default function AllTodosPage() {
             className="flex-shrink-0 w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center shadow-sm">
             <Send size={14} />
           </button>
-          <button onClick={() => { setEditTodo(undefined); setShowModal(true); }} aria-label="상세 옵션으로 추가"
-            className="flex-shrink-0 w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center">
-            <Plus size={16} />
+          <button onClick={openNewDetail} aria-label="상세 옵션으로 추가" title="날짜·시간·마감일·반복 등 상세 옵션으로 추가"
+            className="flex-shrink-0 flex items-center gap-1 h-8 px-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold whitespace-nowrap">
+            <SlidersHorizontal size={13} />
+            상세
           </button>
         </div>
       </div>
 
-      {showModal && <TodoModal todo={editTodo} onClose={closeModal} />}
+      {showModal && <TodoModal todo={editTodo} defaultTitle={detailTitle} onClose={closeModal} />}
     </div>
   );
 }

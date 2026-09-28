@@ -11,10 +11,11 @@ interface Props {
   occurrenceCount: number; // 만들어질 개수 미리보기
   itemLabel: string; // "할 일" / "일정"
   accent?: 'leaf' | 'blue';
+  convertingExisting?: boolean; // 이미 있는 항목을 반복으로 바꾸는 중 (안내 문구만 다름)
 }
 
 // 반복 설정 UI (할 일/일정 공용): 매일/매주/격주/매월 + (매주·격주면) 요일 + 종료일
-export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf' }: Props) {
+export default function RepeatPicker({ startDate, rule, onChange, occurrenceCount, itemLabel, accent = 'leaf', convertingExisting = false }: Props) {
   const on = accent === 'blue' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-leaf-300 border-leaf-300 text-leaf-800';
   const off = 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400';
   const ring = accent === 'blue' ? 'focus:ring-blue-400' : 'focus:ring-leaf-400';
@@ -82,7 +83,9 @@ export default function RepeatPicker({ startDate, rule, onChange, occurrenceCoun
             <p className="text-[11px] text-gray-400">
               {rule.until
                 ? occurrenceCount > 0
-                  ? `종료일까지 총 ${occurrenceCount}개의 ${itemLabel}이 만들어져요${occurrenceCount >= REPEAT_MAX_OCCURRENCES ? ` (최대 ${REPEAT_MAX_OCCURRENCES}개)` : ''}. 나중에 한 개만, 또는 이후 전체를 한꺼번에 수정·삭제할 수 있어요.`
+                  ? convertingExisting
+                    ? `종료일까지 반복 날짜는 총 ${occurrenceCount}개예요${occurrenceCount >= REPEAT_MAX_OCCURRENCES ? ` (최대 ${REPEAT_MAX_OCCURRENCES}개)` : ''}. 지금 이 ${itemLabel}은 그대로 두고 나머지 날짜에 새로 만들어서 하나의 반복으로 묶어요.`
+                    : `종료일까지 총 ${occurrenceCount}개의 ${itemLabel}이 만들어져요${occurrenceCount >= REPEAT_MAX_OCCURRENCES ? ` (최대 ${REPEAT_MAX_OCCURRENCES}개)` : ''}. 나중에 한 개만, 또는 이후 전체를 한꺼번에 수정·삭제할 수 있어요.`
                   : '종료일까지 해당하는 날짜가 없어요. 요일이나 종료일을 확인해주세요.'
                 : '반복을 끝낼 날짜를 선택해주세요.'}
             </p>

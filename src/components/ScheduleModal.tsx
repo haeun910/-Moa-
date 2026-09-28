@@ -26,15 +26,19 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
   const [notes, setNotes] = useState(schedule?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // 반복은 새로 만드는 일정에만 (예: 매주 월·수 수업, 매주 화요일 정기 회의)
-  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
-  const repeatDates = !isEdit ? buildRecurringDates(date, repeat) : [];
-  const repeating = !isEdit && repeat.freq !== 'none';
-
   // 반복으로 만든 일정을 수정/삭제할 때 적용 범위
   const seriesId = schedule?.seriesId ?? null;
   const seriesItems = seriesId ? schedules.filter(s => s.seriesId === seriesId) : [];
   const inSeries = seriesItems.length > 1;
+
+  // 반복 설정 (예: 매주 월·수 수업, 매주 화요일 정기 회의). 새 일정뿐 아니라
+  // 아직 반복이 아닌 기존 일정도 반복으로 바꿀 수 있음 (이 일정이 첫 회차가 되고 이후 날짜가 추가됨)
+  const canRepeat = !inSeries;
+  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
+  const repeating = canRepeat && repeat.freq !== 'none';
+  const repeatDates = repeating ? buildRecurringDates(date, repeat) : [];
+  // 기존 일정을 반복으로 바꿀 때 새로 만들어지는 개수 (이 일정 날짜는 제외)
+  const newRepeatCount = isEdit ? repeatDates.filter(d => d !== date).length : repeatDates.length;
   const [scope, setScope] = useState<SeriesScope>('one');
   const followingCount = schedule ? seriesItems.filter(s => s.date >= schedule.date).length : 0;
   const scopeFromDate = scope === 'following' && schedule ? schedule.date : null;
@@ -46,7 +50,11 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
     setSaving(true);
     try {
       const fields = { title: title.trim(), startTime: startTime || null, notes: notes.trim() || null };
-      if (isEdit) {
+      if (isEdit && repeating && newRepeatCount > 0) {
+        // 기존 일정을 반복으로 바꾸기: 이 일정은 내용/날짜만 저장하고 반복 묶음의 첫 회차로 사용
+        await updateSchedule(schedule.id, { ...fields, date });
+        await addScheduleSeries(fields, repeatDates.filter(d => d !== date), schedule.id);
+      } else if (isEdit) {
         if (inSeries && scope !== 'one' && seriesId) {
           await updateScheduleSeries(seriesId, scopeFromDate, fields);
           // 날짜 변경은 이 일정에만 적용
@@ -127,7 +135,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
             className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm resize-none transition-all"
           />
 
-          {!isEdit && (
+          {canRepeat && (
             <RepeatPicker
               startDate={date}
               rule={repeat}
@@ -135,6 +143,7 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
               occurrenceCount={repeatDates.length}
               itemLabel="일정"
               accent="blue"
+              convertingExisting={isEdit}
             />
           )}
 
@@ -164,7 +173,9 @@ export default function ScheduleModal({ schedule, defaultDate, onClose }: Props)
           </button>
           <button onClick={handleSave} disabled={!canSave}
             className="flex-1 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-semibold transition-colors whitespace-nowrap">
-            {saving ? '저장 중...' : isEdit ? '저장' : repeating && repeatDates.length > 0 ? `${repeatDates.length}개 추가` : '추가'}
+            {saving ? '저장 중...'
+              : repeating && newRepeatCount > 0 ? (isEdit ? `저장 + ${newRepeatCount}개 추가` : `${newRepeatCount}개 추가`)
+              : isEdit ? '저장' : '추가'}
           </button>
         </div>
       </div>

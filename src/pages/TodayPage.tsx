@@ -77,7 +77,7 @@ export default function TodayPage() {
   const [editTodo, setEditTodo] = useState<Todo | undefined>();
   const [panelOpen, setPanelOpen] = useState(false);
   // 날짜 패널 입력창에서 상세 옵션으로 넘어갈 때 고른 카테고리/하위카테고리를 모달 기본값으로 전달
-  const [newTodoDefaults, setNewTodoDefaults] = useState<{ categoryId: string | null; subcategoryId: string | null }>({ categoryId: null, subcategoryId: null });
+  const [newTodoDefaults, setNewTodoDefaults] = useState<{ categoryId: string | null; subcategoryId: string | null; title: string }>({ categoryId: null, subcategoryId: null, title: '' });
 
   const [goalModalState, setGoalModalState] = useState<{ goal?: MonthlyGoal } | null>(null);
   const [ddayModalState, setDdayModalState] = useState<{ dday?: DDay } | null>(null);
@@ -128,8 +128,8 @@ export default function TodayPage() {
 
   function openEdit(todo: Todo) { setEditTodo(todo); setShowModal(true); }
   function closeModal() { setShowModal(false); setEditTodo(undefined); }
-  function openNewTodoDetail(categoryId: string | null, subcategoryId: string | null) {
-    setNewTodoDefaults({ categoryId, subcategoryId });
+  function openNewTodoDetail(categoryId: string | null, subcategoryId: string | null, title: string) {
+    setNewTodoDefaults({ categoryId, subcategoryId, title });
     setEditTodo(undefined);
     setShowModal(true);
   }
@@ -821,6 +821,7 @@ export default function TodayPage() {
           defaultDate={selectedDate}
           defaultCategoryId={newTodoDefaults.categoryId}
           defaultSubcategoryId={newTodoDefaults.subcategoryId}
+          defaultTitle={newTodoDefaults.title}
           onClose={closeModal}
         />
       )}

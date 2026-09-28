@@ -184,6 +184,12 @@ function seriesQuery<Q extends { eq: (col: string, v: string) => Q; gte: (col: s
   return fromDate ? scoped.gte('date', fromDate) : scoped;
 }
 
+// 기존 항목 하나를 반복 묶음에 넣음 (반복으로 바꾸기). series_id 컬럼이 없으면(012 전) 묶음만 생략
+export async function setSeriesId(table: 'todos' | 'schedules', id: string, seriesId: string): Promise<void> {
+  const { error } = await supabase.from(table).update({ series_id: seriesId }).eq('id', id);
+  if (error && !isMissingSeriesColumn(error)) throw error;
+}
+
 export async function createTodos(userId: string, rows: Parameters<typeof createTodo>[1][], seriesId: string): Promise<DbTodo[]> {
   return insertMany<DbTodo>('todos', rows.map(r => ({ user_id: userId, ...r, series_id: seriesId })));
 }

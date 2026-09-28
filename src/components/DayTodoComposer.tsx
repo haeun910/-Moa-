@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Send, Plus } from 'lucide-react';
+import { Send, SlidersHorizontal } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useApp } from '../context/AppContext';
 
@@ -14,8 +14,8 @@ function writeLastCategory(id: string) {
 
 interface Props {
   date: string; // YYYY-MM-DD, 홈에서 선택한 날짜
-  // 상세 옵션(시간/마감일/반복 등)으로 추가: 지금 고른 카테고리/하위카테고리를 그대로 넘김
-  onOpenDetail: (categoryId: string | null, subcategoryId: string | null) => void;
+  // 상세 옵션(시간/마감일/반복 등)으로 추가: 지금 고른 카테고리/하위카테고리와 입력 중이던 제목을 그대로 넘김
+  onOpenDetail: (categoryId: string | null, subcategoryId: string | null, title: string) => void;
 }
 
 // 홈 화면에서 날짜를 고른 뒤 할 일을 추가하는 입력창.
@@ -117,9 +117,12 @@ export default function DayTodoComposer({ date, onOpenDetail }: Props) {
           className="flex-shrink-0 w-8 h-8 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 flex items-center justify-center">
           <Send size={14} />
         </button>
-        <button onClick={() => onOpenDetail(selectedCategory?.id ?? null, selectedSubcatId)} aria-label="상세 옵션으로 추가" title="시간·마감일·반복 등 상세 옵션으로 추가"
-          className="flex-shrink-0 w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 flex items-center justify-center">
-          <Plus size={16} />
+        <button
+          onClick={() => { onOpenDetail(selectedCategory?.id ?? null, selectedSubcatId, title.trim()); setTitle(''); }}
+          aria-label="상세 옵션으로 추가" title="시간·마감일·반복 등 상세 옵션으로 추가"
+          className="flex-shrink-0 flex items-center gap-1 h-8 px-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-semibold whitespace-nowrap">
+          <SlidersHorizontal size={13} />
+          상세
         </button>
       </div>
     </div>
