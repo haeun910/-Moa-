@@ -1,29 +1,48 @@
 import { useState } from 'react';
-import { X, Flag } from 'lucide-react';
+import { X, Flag, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useApp } from '../context/AppContext';
+import type { MonthlyGoal } from '../types';
 
-export default function GoalModal({ month, onClose }: { month: string; onClose: () => void }) {
-  const { addMonthlyGoal } = useApp();
-  const [title, setTitle] = useState('');
+interface Props {
+  month: string;
+  goal?: MonthlyGoal; // 있으면 수정 모드
+  onClose: () => void;
+}
+
+export default function GoalModal({ month, goal, onClose }: Props) {
+  const { addMonthlyGoal, updateMonthlyGoal, deleteMonthlyGoal } = useApp();
+  const isEdit = !!goal;
+  const [title, setTitle] = useState(goal?.title ?? '');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function handleSave() {
     const t = title.trim();
     if (!t || saving) return;
     setSaving(true);
     try {
-      await addMonthlyGoal(month, t);
+      if (isEdit) {
+        if (t !== goal.title) await updateMonthlyGoal(goal.id, { title: t });
+      } else {
+        await addMonthlyGoal(month, t);
+      }
       onClose();
     } finally {
       setSaving(false);
     }
   }
 
+  function handleDelete() {
+    if (goal) { deleteMonthlyGoal(goal.id); onClose(); }
+  }
+
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
+
+  const monthLabel = format(parseISO(`${goal?.month ?? month}-01`), 'M월', { locale: ko });
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleBackdrop}>
@@ -35,7 +54,7 @@ export default function GoalModal({ month, onClose }: { month: string; onClose: 
           <div className="flex items-center gap-2">
             <Flag size={16} className="text-leaf-600" />
             <h2 className="text-base font-bold text-gray-900 dark:text-white">
-              {format(parseISO(`${month}-01`), 'M월', { locale: ko })} 목표 추가
+              {monthLabel} 목표 {isEdit ? '수정' : '추가'}
             </h2>
           </div>
           <button onClick={onClose} aria-label="닫기"
@@ -55,13 +74,27 @@ export default function GoalModal({ month, onClose }: { month: string; onClose: 
             onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
           />
           <div className="flex gap-2">
+            {isEdit && (
+              confirmDelete ? (
+                <button onClick={handleDelete}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold">
+                  <Trash2 size={14} />
+                  정말 삭제
+                </button>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} aria-label="삭제"
+                  className="flex items-center justify-center w-10 py-2.5 rounded-xl text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  <Trash2 size={15} />
+                </button>
+              )
+            )}
             <button onClick={onClose}
               className="flex-1 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm font-medium transition-colors">
               취소
             </button>
             <button onClick={handleSave} disabled={!title.trim() || saving}
               className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 text-sm font-semibold transition-colors">
-              {saving ? '추가 중...' : '추가'}
+              {saving ? '저장 중...' : isEdit ? '저장' : '추가'}
             </button>
           </div>
         </div>
