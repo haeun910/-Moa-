@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 앱처럼 쓰도록 확대/축소 막기: maximum-scale=1은 iOS에서 입력창을 누를 때 자동 확대되는 것도 막아줌 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#86A03F" />
     <meta name="description" content="할 일과 일정을 한 곳에서 관리하는 플래너" />
     <title>모아 — 할 일 · 일정 관리</title>
