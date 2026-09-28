@@ -68,7 +68,9 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="px-4 pt-10 pb-24 max-w-lg mx-auto">
+    // 넓은 화면(태블릿/PC)에서는 폭을 넓히고 두 칸으로 나눠서 화면을 꽉 채워 씀
+    // (왼쪽: 화면·기능 설정 / 오른쪽: 계정·앱). 모바일은 기존처럼 한 줄로 쌓임
+    <div className="px-4 lg:px-8 pt-10 pb-24 max-w-lg md:max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-6">설정</h1>
 
       {/* Profile card */}
@@ -96,7 +98,10 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-start">
+      {/* ── 왼쪽 칸: 화면 · 기능 ── */}
       <div className="space-y-4">
+        <p className="hidden md:block px-1 text-xs font-bold text-gray-500 dark:text-gray-400">화면 · 기능</p>
         {/* Theme */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
           <div className="px-4 pt-4 pb-2">
@@ -299,6 +304,11 @@ export default function SettingsPage() {
           </button>
         </section>
 
+      </div>
+
+      {/* ── 오른쪽 칸: 계정 · 앱 ── */}
+      <div className="space-y-4">
+        <p className="hidden md:block px-1 text-xs font-bold text-gray-500 dark:text-gray-400">계정 · 앱</p>
         {/* 계정 & 데이터 */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden divide-y divide-gray-100 dark:divide-gray-800">
           {hasEmailPassword && (
@@ -484,6 +494,7 @@ export default function SettingsPage() {
             <ChevronRight size={16} className="text-gray-400" />
           </button>
         </section>
+      </div>
       </div>
 
       {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
