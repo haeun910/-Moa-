@@ -11,6 +11,18 @@ html, body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* 모바일에서 앱처럼 고정: 가로로 밀리거나, 끝에서 튕기거나(당겨서 새로고침 포함),
+     가로 모드 전환 시 글자가 멋대로 커지는 것을 막음 */
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 두 번 탭해서 확대되는 것 막기 (스크롤/탭은 그대로 동작) */
+html {
+  touch-action: manipulation;
 }
 
 #root {
