@@ -69,8 +69,18 @@ export interface DbNote {
   user_id: string;
   title: string;
   content: string;
+  folder_id?: string | null; // 014 마이그레이션 전에는 컬럼이 없을 수 있음
+  pinned?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface DbNoteFolder {
+  id: string;
+  user_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface DbMonthlyGoal {
