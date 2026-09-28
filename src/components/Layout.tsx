@@ -19,7 +19,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50">
+      {/* 모달(z-50)이 항상 하단 탭 위에 오도록 z-40. 같은 z-50이면 DOM상 뒤에 있는 탭이 좁은 화면의
+          바텀시트 모달 하단(저장 버튼)을 덮어버렸음 */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40">
         <div className="bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
           <div className="flex items-stretch justify-around h-[62px] max-w-lg mx-auto px-2">
             {NAV_ITEMS.map(({ screen, label, Icon }) => {

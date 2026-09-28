@@ -80,7 +80,7 @@ export default function TodayPage() {
   const [newTodoDefaults, setNewTodoDefaults] = useState<{ categoryId: string | null; subcategoryId: string | null }>({ categoryId: null, subcategoryId: null });
 
   const [goalModalState, setGoalModalState] = useState<{ goal?: MonthlyGoal } | null>(null);
-  const [showDdayModal, setShowDdayModal] = useState(false);
+  const [ddayModalState, setDdayModalState] = useState<{ dday?: DDay } | null>(null);
   const [showDdayListModal, setShowDdayListModal] = useState(false);
   const [scheduleModalState, setScheduleModalState] = useState<{ schedule?: ScheduleItem; defaultDate?: string } | null>(null);
   const [calView, setCalView] = useState<'month' | 'week'>('month');
@@ -149,6 +149,18 @@ export default function TodayPage() {
   const allDdays = [...ddays, ...todoDdays].sort((a, b) => a.targetDate.localeCompare(b.targetDate));
   // 위쪽 위젯에는 지나간 D-Day는 숨기고, "D-Day" 제목을 누르면 지나간 것까지 전체를 보여줌
   const upcomingDdays = allDdays.filter(d => differenceInCalendarDays(parseISO(d.targetDate), new Date()) >= 0);
+  // 선택한 날이 기준일인 D-Day (날짜 패널의 할 일 목록 맨 위에 일정과 함께 보여줌)
+  const selectedDdays = allDdays.filter(d => d.targetDate === selectedDate);
+
+  // 할 일에서 연동된 D-Day는 원래 할 일 편집 화면으로, 직접 만든 D-Day는 D-Day 수정 화면으로
+  function openDday(d: DDay) {
+    if (d.fromTodoId) {
+      const todo = todos.find(t => t.id === d.fromTodoId);
+      if (todo) openEdit(todo);
+    } else {
+      setDdayModalState({ dday: d });
+    }
+  }
 
   async function removeDday(d: DDay) {
     if (d.fromTodoId) await updateTodo(d.fromTodoId, { isDday: false });
@@ -191,7 +203,7 @@ export default function TodayPage() {
 
   // 선택한 날의 할 일을 카테고리별로 나눠서 보여줌 (카테고리 이름이 목록 사이에 끼워짐)
   function renderDayGroups() {
-    if (selectedTodos.length === 0 && selectedSchedules.length === 0) {
+    if (selectedTodos.length === 0 && selectedSchedules.length === 0 && selectedDdays.length === 0) {
       return (
         <div className="text-center pt-16">
           <p className="text-sm text-gray-400">이 날의 할 일이 없어요</p>
@@ -201,6 +213,39 @@ export default function TodayPage() {
     }
     return (
       <div className="space-y-4">
+        {selectedDdays.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5 px-1">
+              <Flag size={12} className="text-leaf-500 flex-shrink-0" />
+              <span className="text-xs font-bold text-leaf-600 dark:text-leaf-400 tracking-wide">D-Day</span>
+              <span className="text-[10px] font-semibold text-leaf-600 bg-leaf-50 dark:bg-leaf-900/30 px-1.5 py-0.5 rounded-full">{selectedDdays.length}</span>
+            </div>
+            <div className="space-y-1.5">
+              {selectedDdays.map(d => (
+                <div
+                  key={d.id}
+                  onClick={() => openDday(d)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-leaf-100 dark:border-leaf-900/40 bg-leaf-50/60 dark:bg-leaf-900/10 cursor-pointer group transition-colors hover:border-leaf-300 dark:hover:border-leaf-700"
+                >
+                  <span className="flex-shrink-0 text-[11px] font-bold text-leaf-600 dark:text-leaf-400">{ddayLabel(d.targetDate)}</span>
+                  <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100 truncate">{d.title}</span>
+                  {d.fromTodoId && (
+                    <span title="할 일에서 연동됨" className="flex-shrink-0 text-gray-300 dark:text-gray-600">
+                      <Link2 size={12} />
+                    </span>
+                  )}
+                  <button
+                    onClick={e => { e.stopPropagation(); removeDday(d); }}
+                    aria-label="D-Day 삭제"
+                    className="flex-shrink-0 opacity-60 md:opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {selectedSchedules.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-1.5 px-1">
@@ -345,7 +390,7 @@ export default function TodayPage() {
                   title="지난 D-Day까지 전체 보기">
                   D-Day
                 </button>
-                <button onClick={() => setShowDdayModal(true)} aria-label="D-Day 추가"
+                <button onClick={() => setDdayModalState({})} aria-label="D-Day 추가"
                   className="w-7 h-7 md:w-5 md:h-5 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
                   <Plus size={14} className="md:hidden" />
                   <Plus size={11} className="hidden md:block" />
@@ -766,7 +811,7 @@ export default function TodayPage() {
       {goalModalState && (
         <GoalModal month={currentMonth} goal={goalModalState.goal} onClose={() => setGoalModalState(null)} />
       )}
-      {showDdayModal && <DDayModal onClose={() => setShowDdayModal(false)} />}
+      {ddayModalState && <DDayModal dday={ddayModalState.dday} onClose={() => setDdayModalState(null)} />}
       {showDdayListModal && (
         <DDayListModal ddays={allDdays} onDelete={removeDday} onClose={() => setShowDdayListModal(false)} />
       )}
