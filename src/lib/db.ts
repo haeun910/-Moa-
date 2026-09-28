@@ -161,6 +161,46 @@ export async function deleteTodo(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── 반복(series) 공통 ──────────────────────────────
+// 012 마이그레이션(series_id 컬럼)을 아직 실행하지 않은 DB에서도 반복 생성 자체는 되도록,
+// series_id 컬럼이 없다는 오류면 series_id 없이 다시 저장함 (이 경우 묶음 수정/삭제만 안 됨)
+function isMissingSeriesColumn(error: { message?: string } | null): boolean {
+  return !!error?.message && error.message.includes('series_id');
+}
+
+async function insertMany<T>(table: 'todos' | 'schedules', rows: Record<string, unknown>[]): Promise<T[]> {
+  if (rows.length === 0) return [];
+  const first = await supabase.from(table).insert(rows).select('*');
+  if (!first.error) return (first.data ?? []) as T[];
+  if (!isMissingSeriesColumn(first.error)) throw first.error;
+  const retry = await supabase.from(table).insert(rows.map(({ series_id: _omit, ...rest }) => rest)).select('*');
+  if (retry.error) throw retry.error;
+  return (retry.data ?? []) as T[];
+}
+
+// fromDate가 있으면 그 날짜 이후(포함) 회차만, 없으면 반복 전체
+function seriesQuery<Q extends { eq: (col: string, v: string) => Q; gte: (col: string, v: string) => Q }>(q: Q, seriesId: string, fromDate: string | null): Q {
+  const scoped = q.eq('series_id', seriesId);
+  return fromDate ? scoped.gte('date', fromDate) : scoped;
+}
+
+export async function createTodos(userId: string, rows: Parameters<typeof createTodo>[1][], seriesId: string): Promise<DbTodo[]> {
+  return insertMany<DbTodo>('todos', rows.map(r => ({ user_id: userId, ...r, series_id: seriesId })));
+}
+
+export async function updateTodoSeries(
+  seriesId: string, fromDate: string | null,
+  updates: Partial<Pick<DbTodo, 'title' | 'category_id' | 'subcategory_id' | 'start_time' | 'notes'>>
+): Promise<void> {
+  const { error } = await seriesQuery(supabase.from('todos').update(updates), seriesId, fromDate);
+  if (error) throw error;
+}
+
+export async function deleteTodoSeries(seriesId: string, fromDate: string | null): Promise<void> {
+  const { error } = await seriesQuery(supabase.from('todos').delete(), seriesId, fromDate);
+  if (error) throw error;
+}
+
 // ────────────────────────────────────────────────
 // Notes
 // ────────────────────────────────────────────────
@@ -315,5 +355,26 @@ export async function updateSchedule(id: string, updates: Partial<Pick<DbSchedul
 
 export async function deleteSchedule(id: string): Promise<void> {
   const { error } = await supabase.from('schedules').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function createSchedules(
+  userId: string,
+  rows: { title: string; date: string; start_time?: string | null; notes?: string | null }[],
+  seriesId: string
+): Promise<DbSchedule[]> {
+  return insertMany<DbSchedule>('schedules', rows.map(r => ({ user_id: userId, ...r, series_id: seriesId })));
+}
+
+export async function updateScheduleSeries(
+  seriesId: string, fromDate: string | null,
+  updates: Partial<Pick<DbSchedule, 'title' | 'start_time' | 'notes'>>
+): Promise<void> {
+  const { error } = await seriesQuery(supabase.from('schedules').update(updates), seriesId, fromDate);
+  if (error) throw error;
+}
+
+export async function deleteScheduleSeries(seriesId: string, fromDate: string | null): Promise<void> {
+  const { error } = await seriesQuery(supabase.from('schedules').delete(), seriesId, fromDate);
   if (error) throw error;
 }

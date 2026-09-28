@@ -59,6 +59,7 @@ export interface DbTodo {
   start_time: string | null;
   notes: string | null;
   sort_order: number;
+  series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
   created_at: string;
   updated_at: string;
 }
@@ -99,6 +100,7 @@ export interface DbSchedule {
   date: string;
   start_time: string | null;
   notes: string | null;
+  series_id?: string | null; // 012 마이그레이션 전에는 컬럼이 없을 수 있음
   created_at: string;
 }
 

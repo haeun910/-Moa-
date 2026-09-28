@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { X, Plus, Trash2, Clock, Flag, Repeat, Check } from 'lucide-react';
-import { addDays, addWeeks, addMonths, parseISO, format, isAfter } from 'date-fns';
+import { X, Plus, Trash2, Clock, Flag, Check } from 'lucide-react';
 import type { Todo } from '../types';
 import { useApp } from '../context/AppContext';
+import { buildRecurringDates } from '../lib/recurrence';
+import type { RepeatRule } from '../lib/recurrence';
+import RepeatPicker from './RepeatPicker';
+import SeriesScopePicker from './SeriesScopePicker';
+import type { SeriesScope } from './SeriesScopePicker';
 
 interface Props {
   todo?: Todo;
@@ -13,23 +17,11 @@ interface Props {
   onClose: () => void;
 }
 
-type RepeatType = 'none' | 'daily' | 'weekly' | 'monthly';
-const REPEAT_MAX_OCCURRENCES = 60; // 종료일을 너무 멀리 잡아도 한 번에 너무 많이 만들어지지 않도록 안전장치
-
-// 반복 시작일부터 종료일까지의 날짜 목록을 미리 계산 (반복 "규칙"이 아니라 각 회차를 실제 할 일로 만드는 방식)
-function buildRecurringDates(startDate: string, untilDate: string, type: RepeatType): string[] {
-  const until = parseISO(untilDate);
-  const dates: string[] = [];
-  let cur = parseISO(startDate);
-  while (!isAfter(cur, until) && dates.length < REPEAT_MAX_OCCURRENCES) {
-    dates.push(format(cur, 'yyyy-MM-dd'));
-    cur = type === 'daily' ? addDays(cur, 1) : type === 'weekly' ? addWeeks(cur, 1) : addMonths(cur, 1);
-  }
-  return dates;
-}
-
 export default function TodoModal({ todo, defaultDate, defaultTime, defaultCategoryId, defaultSubcategoryId, onClose }: Props) {
-  const { addTodo, updateTodo, deleteTodo, categories, subcategories, addSubcategory } = useApp();
+  const {
+    todos, addTodo, updateTodo, deleteTodo, categories, subcategories, addSubcategory,
+    addTodoSeries, updateTodoSeries, deleteTodoSeries,
+  } = useApp();
 
   const [title, setTitle] = useState(todo?.title ?? '');
   const [date, setDate] = useState(todo?.date ?? defaultDate ?? '');
@@ -43,15 +35,23 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
   const [notes, setNotes] = useState(todo?.notes ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 반복은 새로 만드는 할 일에만 적용(이미 만든 할 일을 나중에 "반복"으로 바꾸는 건 지원 안 함).
-  // 각 회차는 독립된 할 일로 각각 생성되고, 이후 수정/삭제도 그 회차만 개별적으로 이뤄짐.
-  const [repeatType, setRepeatType] = useState<RepeatType>('none');
-  const [repeatUntil, setRepeatUntil] = useState('');
+  // 각 회차는 독립된 할 일로 만들어지고 seriesId로 묶여서, 나중에 이 회차만/이후 모두/전체를 골라 수정·삭제할 수 있음.
+  const [repeat, setRepeat] = useState<RepeatRule>({ freq: 'none', weekdays: [], until: '' });
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!todo;
-  const repeatDates = !isEdit && repeatType !== 'none' && date && repeatUntil
-    ? buildRecurringDates(date, repeatUntil, repeatType)
-    : [];
+  const repeating = !isEdit && repeat.freq !== 'none';
+  const repeatDates = repeating ? buildRecurringDates(date, repeat) : [];
+
+  // 반복으로 만든 할 일을 수정/삭제할 때 적용 범위
+  const seriesId = todo?.seriesId ?? null;
+  const seriesItems = seriesId ? todos.filter(t => t.seriesId === seriesId) : [];
+  const inSeriesMode = seriesItems.length > 1;
+  const [scope, setScope] = useState<SeriesScope>('one');
+  // "이후 모두"의 기준 날짜: 이 할 일의 원래 날짜 (저장소로 옮겨 날짜가 없으면 전체와 같게 취급)
+  const scopeFromDate = scope === 'following' ? (todo?.date ?? null) : null;
+  const followingCount = todo?.date ? seriesItems.filter(t => t.date && t.date >= todo.date!).length : seriesItems.length;
+  const canSave = !!title.trim() && !saving && (!repeating || repeatDates.length > 0);
   const categorySubcats = categoryId ? subcategories.filter(s => s.categoryId === categoryId) : [];
 
   function selectCategory(id: string | null) {
@@ -70,7 +70,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
   }
 
   async function handleSave() {
-    if (!title.trim() || saving) return;
+    if (!canSave) return;
     const payload = {
       title: title.trim(),
       completed: todo?.completed ?? false,
@@ -82,29 +82,36 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
       startTime: startTime || null,
       notes,
     };
-    if (isEdit) {
-      await updateTodo(todo.id, payload);
-      onClose();
-      return;
-    }
-    if (repeatDates.length > 0) {
-      setSaving(true);
-      try {
-        for (const d of repeatDates) {
-          await addTodo({ ...payload, date: d });
+    setSaving(true);
+    try {
+      if (isEdit) {
+        if (inSeriesMode && scope !== 'one' && seriesId) {
+          // 제목/카테고리/시간/메모는 선택한 범위 전체에, 날짜·마감일·D-Day는 이 할 일에만 적용
+          await updateTodoSeries(seriesId, scopeFromDate, {
+            title: payload.title, categoryId, subcategoryId, startTime: payload.startTime, notes,
+          });
+          await updateTodo(todo.id, { date: payload.date, dueDate: payload.dueDate, isDday: payload.isDday });
+        } else {
+          await updateTodo(todo.id, payload);
         }
-      } finally {
-        setSaving(false);
+      } else if (repeating) {
+        await addTodoSeries(payload, repeatDates);
+      } else {
+        await addTodo(payload);
       }
-    } else {
-      await addTodo(payload);
+      onClose();
+    } finally {
+      setSaving(false);
     }
-    onClose();
   }
 
   function handleDelete() {
-    if (todo) { deleteTodo(todo.id); onClose(); }
+    if (!todo) return;
+    if (inSeriesMode && scope !== 'one' && seriesId) deleteTodoSeries(seriesId, scopeFromDate);
+    else deleteTodo(todo.id);
+    onClose();
   }
+  const deleteCount = inSeriesMode ? (scope === 'all' ? seriesItems.length : scope === 'following' ? followingCount : 1) : 1;
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
@@ -142,7 +149,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
               onChange={e => setTitle(e.target.value)}
               placeholder="할 일을 입력하세요"
               className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
-              onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); }}
             />
           </div>
 
@@ -197,55 +204,12 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
 
           {/* Repeat (새 할 일에만 적용) */}
           {!isEdit && (
-            <div>
-              <label className="flex items-center gap-1 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                <Repeat size={11} />
-                반복
-              </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {([
-                  ['none', '반복 안 함'],
-                  ['daily', '매일'],
-                  ['weekly', '매주'],
-                  ['monthly', '매월'],
-                ] as [RepeatType, string][]).map(([type, label]) => (
-                  <button
-                    key={type}
-                    onClick={() => setRepeatType(type)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                      repeatType === type
-                        ? 'bg-leaf-300 border-leaf-300 text-leaf-800'
-                        : 'bg-transparent border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-400'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {repeatType !== 'none' && (
-                <>
-                  {!date ? (
-                    <p className="text-xs text-amber-500">먼저 위에서 날짜를 선택해주세요.</p>
-                  ) : (
-                    <>
-                      <input
-                        type="date"
-                        value={repeatUntil}
-                        min={date}
-                        onChange={e => setRepeatUntil(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-leaf-400 transition text-sm"
-                      />
-                      <p className="text-[11px] text-gray-400 mt-1.5">
-                        {repeatUntil
-                          ? `이 날짜까지 총 ${repeatDates.length}개의 할 일이 각각 만들어져요${repeatDates.length >= REPEAT_MAX_OCCURRENCES ? ` (최대 ${REPEAT_MAX_OCCURRENCES}개)` : ''}.`
-                          : '반복을 끝낼 날짜를 선택해주세요.'}
-                        {' '}이후 각 항목은 서로 독립적이라 개별적으로 수정·삭제할 수 있어요.
-                      </p>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
+            <RepeatPicker startDate={date} rule={repeat} onChange={setRepeat} occurrenceCount={repeatDates.length} itemLabel="할 일" />
+          )}
+
+          {/* 반복 할 일 수정 시 적용 범위 */}
+          {isEdit && inSeriesMode && (
+            <SeriesScopePicker scope={scope} onChange={setScope} seriesCount={seriesItems.length} followingCount={followingCount} />
           )}
 
           {/* Category */}
@@ -363,7 +327,7 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
                 <button onClick={handleDelete}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold">
                   <Trash2 size={15} />
-                  정말 삭제
+                  {deleteCount > 1 ? `${deleteCount}개 삭제` : '정말 삭제'}
                 </button>
               </div>
             ) : (
@@ -384,10 +348,10 @@ export default function TodoModal({ todo, defaultDate, defaultTime, defaultCateg
           </button>
           <button
             onClick={handleSave}
-            disabled={!title.trim() || saving}
+            disabled={!canSave}
             className="flex-1 py-2.5 rounded-xl bg-leaf-300 hover:bg-leaf-400 disabled:opacity-40 text-leaf-800 transition-colors text-sm font-semibold"
           >
-            {saving ? `저장 중... (${repeatDates.length}개)` : '저장'}
+            {saving ? '저장 중...' : repeating && repeatDates.length > 0 ? `${repeatDates.length}개 추가` : '저장'}
           </button>
         </div>
       </div>

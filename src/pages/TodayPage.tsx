@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, AlertCircle, CalendarCheck } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, X, Check, Flag, Trash2, BarChart3, Clock10, Megaphone, Undo2, CalendarDays, CalendarClock, Link2, AlertCircle, CalendarCheck, Repeat } from 'lucide-react';
 import AchievementModal from '../components/AchievementModal';
 import NoticeModal from '../components/NoticeModal';
 import GoalModal from '../components/GoalModal';
@@ -264,6 +264,7 @@ export default function TodayPage() {
                     <span className="flex-shrink-0 text-[11px] font-semibold text-blue-600 dark:text-blue-400">{s.startTime}</span>
                   )}
                   <span className="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-100 truncate">{s.title}</span>
+                  {s.seriesId && <Repeat size={12} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
                   <button
                     onClick={e => { e.stopPropagation(); deleteSchedule(s.id); }}
                     aria-label="일정 삭제"
@@ -451,6 +452,7 @@ export default function TodayPage() {
                       {format(parseISO(s.date), 'M/d')}
                     </span>
                     <span className="flex-1 min-w-0 text-sm md:text-xs text-gray-700 dark:text-gray-300 truncate">{s.title}</span>
+                    {s.seriesId && <Repeat size={10} className="flex-shrink-0 text-blue-300 dark:text-blue-700" aria-label="반복 일정" />}
                     {s.startTime && (
                       <span className="flex-shrink-0 text-[10px] text-gray-400">{s.startTime}</span>
                     )}
